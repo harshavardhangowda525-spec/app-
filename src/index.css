@@ -22,7 +22,8 @@
   -webkit-tap-highlight-color: transparent;
 }
 
-html, body, #root { height: 100%; }
+html, body, #root { min-height: 100dvh; }
+html { height: -webkit-fill-available; }
 body {
   margin: 0;
   background: var(--color-base);

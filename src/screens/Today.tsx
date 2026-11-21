@@ -11,6 +11,7 @@ import type { ActivityInstance } from '../lib/types'
 import { useNav } from '../store/nav'
 import { useStore } from '../store/useStore'
 import { dailySummary } from '../lib/analytics'
+import { InstallBanner } from '../components/InstallBanner'
 
 export default function Today() {
   const now = useNow(15000)
@@ -92,6 +93,8 @@ export default function Today() {
           </div>
         </div>
       </div>
+
+      {isToday && <InstallBanner />}
 
       <Priorities date={date} editing={editPr} setEditing={setEditPr} />
 

@@ -4,6 +4,7 @@ import { Card, Field, Pill, ScreenHeader, Section, Segmented } from '../componen
 import { isNative, requestPermission } from '../lib/notify'
 import { dateKey } from '../lib/time'
 import { useStore } from '../store/useStore'
+import { InstallButton } from '../components/InstallBanner'
 
 export default function Settings() {
   const settings = useStore(s => s.settings)
@@ -27,6 +28,9 @@ export default function Settings() {
   return (
     <div className="space-y-4">
       <ScreenHeader back kicker="Kairo" title="Settings" />
+      <Section title="App">
+        <Card className="space-y-2"><InstallButton /></Card>
+      </Section>
       <Section title="Profile">
         <Card className="space-y-3">
           <Field label="Your name (for the greeting)"><input className="field" value={settings.name} onChange={e => update({ name: e.target.value })} /></Field>
