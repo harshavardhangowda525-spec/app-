@@ -11,6 +11,7 @@ import { streak } from '../lib/analytics'
 
 const PRESETS = [25, 45, 60, 120]
 const DIAL = 300, C = DIAL / 2, ARC_R = 126, ORB = 200
+const ZONE = 168 // equal top/bottom zone height → dial sits at the exact screen centre
 
 function lerpColor(a: string, b: string, t: number) {
   const p = (h: string) => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16))
@@ -122,11 +123,22 @@ export default function Focus() {
   const liquidDark = frac > 0.55
   const calm = phase === 'paused'
   const immersive = phase === 'running' || phase === 'paused'
-  const dialScale = useDialScale(immersive || fs)
+  const midRef = useRef<HTMLDivElement>(null)
+  const dialScale = useFitScale(midRef)
 
+  const chips = (phase === 'ready'
+    ? [draft.instanceKey ? 'Linked to schedule' : 'Unlinked session', `Today ${fmtDur(todayMin)}`]
+    : phase === 'paused' ? [`Paused ${fmtDur((now.getTime() - (active?.pausedAt ?? now.getTime())) / 60000)}`, 'Progress saved']
+      : phase === 'complete' ? [`+${done?.actualMinutes ?? 0} min ${done?.category ?? ''}`, `Streak ${streakDays} day${streakDays === 1 ? '' : 's'}`]
+        : [endsAt ? `Ends ${endsAt.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}` : '', `Streak ${streakDays} day${streakDays === 1 ? '' : 's'}`, `Today ${fmtDur(todayMin + elapsedMs / 60000)}`]
+  ).filter(Boolean)
+
+  // Layout: [top zone][dial][bottom zone]. Both zones have the SAME fixed height, so the dial is
+  // always at the exact centre of the screen and scales to whatever space is left between them.
   return (
+    <>
     <div className={`relative -mx-4 px-4 flex flex-col overflow-hidden ${calm || reduced ? 'paused-anim' : ''} ${reduced ? 'reduce-motion' : ''}`}
-      style={{ minHeight: immersive ? 'calc(100dvh - max(12px, env(safe-area-inset-top)) - max(16px, env(safe-area-inset-bottom)))' : 'calc(100dvh - max(12px, env(safe-area-inset-top)) - 112px)' }}>
+      style={{ minHeight: immersive ? 'calc(100dvh - max(12px, env(safe-area-inset-top)) - max(16px, env(safe-area-inset-bottom)))' : 'calc(100dvh - max(12px, env(safe-area-inset-top)) - max(14px, env(safe-area-inset-bottom)) - 74px)' }}>
       {/* Particles */}
       <div className="pointer-events-none absolute inset-0" style={{ opacity: phase === 'ready' ? 0.55 : calm ? 0.25 : 1, transition: 'opacity .6s' }}>
         {PARTICLES.map(([x, y, r, o, d, delay], i) => (
@@ -139,7 +151,8 @@ export default function Focus() {
         ))}
       </div>
 
-      {/* Header */}
+      {/* Top zone: header + status chips */}
+      <div className="relative flex-none flex flex-col gap-3" style={{ height: ZONE }}>
       <div className="relative flex items-center justify-between pt-2">
         <motion.button whileTap={{ scale: 0.9 }} onClick={() => setTab('today')} aria-label="Minimise" className="glass grid place-items-center size-9 rounded-full"><ChevronDown size={16} /></motion.button>
         <button className="text-center" onClick={() => phase === 'ready' && setPickOpen(true)}>
@@ -154,11 +167,20 @@ export default function Focus() {
           {fs ? <Minimize size={15} /> : <Expand size={15} />}
         </motion.button>
       </div>
+      <div className="flex justify-center gap-2 flex-wrap">
+        {chips.map(t => <span key={t} className="glass rounded-full px-3 py-1.5 text-[11px] font-semibold text-ink-2 whitespace-nowrap">{t}</span>)}
+      </div>
+      {phase === 'complete' && linkedItem && linkedItem.status !== 'done' && (
+        <Pill variant="white" className="w-full h-11 text-[13px]" onClick={() => { complete(linkedItem); setDone(null) }}>
+          <Check size={16} /> <span className="truncate">Mark “{linkedItem.title}” done</span>
+        </Pill>
+      )}
+      </div>
 
-      {/* Dial — centred in the free space (true middle of the screen in full-screen / running mode) */}
-      {immersive && <div className="flex-1" />}
-      <div className={immersive ? 'pointer-events-none absolute inset-x-0 top-1/2 -translate-y-1/2 grid place-items-center' : 'relative flex-1 grid place-items-center py-6'}>
-      <div className="relative" style={{ width: DIAL, height: DIAL, transform: `scale(${dialScale})`, transition: 'transform .5s cubic-bezier(.2,.8,.2,1)' }}>
+      {/* Middle zone: the dial, centred and scaled to fit */}
+      <div ref={midRef} className="relative flex-1 min-h-0">
+      {/* absolute so the 300px dial never stretches the layout; scale fits it to the zone */}
+      <div className="absolute left-1/2 top-1/2" style={{ width: DIAL, height: DIAL, transform: `translate(-50%, -50%) scale(${dialScale})`, transition: 'transform .45s cubic-bezier(.2,.8,.2,1)' }}>
         <div className="absolute anim-breathe rounded-full pointer-events-none"
           style={{
             inset: phase === 'complete' ? -80 : -50, opacity: phase === 'ready' ? 0.7 : calm ? 0.25 : 1, transition: 'opacity .6s, inset .8s',
@@ -230,16 +252,16 @@ export default function Focus() {
 
       </div>
 
-      {/* Below dial */}
-      <div className="relative space-y-4 pb-2">
+      {/* Bottom zone: presets / milestones + controls (same height as top zone) */}
+      <div className="relative flex-none flex flex-col justify-end gap-3 pb-1" style={{ height: ZONE }}>
         {phase === 'ready' ? (
-          <div className="flex justify-center gap-1.5 flex-wrap">
+          <div className="flex justify-center gap-1.5">
             {PRESETS.map(m => (
               <motion.button key={m} whileTap={{ scale: 0.92 }} onClick={() => setDraft(d => ({ ...d, minutes: m }))}
-                className={`h-9 px-3.5 rounded-full text-[13px] font-bold ${draft.minutes === m ? 'peach-grad text-white shadow-[0_6px_16px_rgba(255,140,150,.45)]' : 'glass text-ink-2'}`}>{m}m</motion.button>
+                className={`h-9 px-3 rounded-full text-[13px] font-bold ${draft.minutes === m ? 'peach-grad text-white shadow-[0_6px_16px_rgba(255,140,150,.45)]' : 'glass text-ink-2'}`}>{m}m</motion.button>
             ))}
             <motion.button whileTap={{ scale: 0.92 }} onClick={() => setCustomOpen(true)}
-              className={`h-9 px-3.5 rounded-full text-[13px] font-bold ${!PRESETS.includes(draft.minutes) ? 'peach-grad text-white' : 'glass text-ink-2'}`}>
+              className={`h-9 px-3 rounded-full text-[13px] font-bold ${!PRESETS.includes(draft.minutes) ? 'peach-grad text-white' : 'glass text-ink-2'}`}>
               {!PRESETS.includes(draft.minutes) ? `${draft.minutes}m` : 'Custom'}
             </motion.button>
           </div>
@@ -266,27 +288,18 @@ export default function Focus() {
           </div>
         )}
 
-        <div className="flex justify-center gap-2 flex-wrap">
-          {(phase === 'ready'
-            ? [draft.instanceKey ? 'Linked to schedule' : 'Unlinked session', `Today ${fmtDur(todayMin)}`]
-            : phase === 'paused' ? [`Paused ${fmtDur((now.getTime() - (active?.pausedAt ?? now.getTime())) / 60000)}`, 'Progress saved']
-              : phase === 'complete' ? [`+${done?.actualMinutes ?? 0} min ${done?.category ?? ''}`, `Streak ${streakDays} day${streakDays === 1 ? '' : 's'}`]
-                : [endsAt ? `Ends ${endsAt.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}` : '', `Streak ${streakDays} day${streakDays === 1 ? '' : 's'}`, `Today ${fmtDur(todayMin + elapsedMs / 60000)}`]
-          ).filter(Boolean).map(t => <span key={t} className="glass rounded-full px-3 py-1.5 text-[11px] font-semibold text-ink-2">{t}</span>)}
-        </div>
-
         {/* Controls */}
-        <div className="flex items-center justify-center gap-7 pt-1">
+        <div className="flex items-center justify-center gap-6">
           {phase !== 'complete' && (
             <motion.button whileTap={{ scale: 0.9 }} disabled={phase === 'ready'} onClick={cancel} aria-label="Discard session"
-              className="glass grid place-items-center size-[54px] rounded-full disabled:opacity-35"><RotateCcw size={20} className="text-ink-2" /></motion.button>
+              className="glass grid place-items-center size-[50px] rounded-full disabled:opacity-35"><RotateCcw size={20} className="text-ink-2" /></motion.button>
           )}
-          <div className="relative size-24 grid place-items-center">
+          <div className="relative size-[88px] grid place-items-center">
             <span className={`pointer-events-none absolute inset-0 rounded-full ${phase === 'running' ? 'anim-spin-slow' : ''}`}
               style={{ padding: 2, background: 'conic-gradient(#FFC4AE, #C9B8FF, #FFC4AE)', WebkitMask: 'radial-gradient(farthest-side, transparent calc(100% - 2px), #000 calc(100% - 2px))', mask: 'radial-gradient(farthest-side, transparent calc(100% - 2px), #000 calc(100% - 2px))', opacity: calm ? 0.3 : 1 }} />
             <motion.button whileTap={{ scale: 0.9 }} transition={spring} aria-label={phase === 'running' ? 'Pause' : phase === 'complete' ? 'Done' : 'Start'}
               onClick={() => phase === 'ready' ? start() : phase === 'running' ? pauseFocus() : phase === 'paused' ? resumeFocus() : setDone(null)}
-              className={`size-20 rounded-full grid place-items-center shadow-[0_10px_30px_rgba(255,150,150,.45)] ${phase === 'complete' ? 'bg-lavender' : 'bg-white'}`}>
+              className={`size-[76px] rounded-full grid place-items-center shadow-[0_10px_30px_rgba(255,150,150,.45)] ${phase === 'complete' ? 'bg-lavender' : 'bg-white'}`}>
               <AnimatePresence mode="wait" initial={false}>
                 <motion.span key={phase} initial={{ scale: 0.4, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.4, opacity: 0 }} transition={{ duration: 0.18 }}>
                   {phase === 'running' ? <Pause size={26} fill="#2A1420" color="#2A1420" /> : phase === 'complete' ? <Check size={28} strokeWidth={2.6} color="#1B1430" /> : <Play size={26} fill="#2A1420" color="#2A1420" className="ml-1" />}
@@ -297,20 +310,16 @@ export default function Focus() {
           {phase !== 'complete' && <HoldToFinish disabled={phase === 'ready'} onFinish={finishNow} />}
         </div>
 
-        <div className="text-center text-[11px] font-medium text-ink-3 pb-2">
+        <div className="text-center text-[11px] font-medium text-ink-3 h-4">
           {phase === 'ready' ? (draft.instanceKey ? 'Suggested for your scheduled block · never forced' : 'Pick a task above, or just focus')
             : phase === 'complete' ? `Logged to ${done?.category === 'Education' ? 'Study Tracker' : 'Focus history'}`
               : 'Hold ✓ to finish early'}
         </div>
 
-        {phase === 'complete' && linkedItem && linkedItem.status !== 'done' && (
-          <Pill variant="white" className="w-full h-12" onClick={() => { complete(linkedItem); setDone(null) }}>
-            <Check size={18} /> Mark “{linkedItem.title}” done
-          </Pill>
-        )}
-
-        {phase === 'ready' && <History sessions={sessions} />}
       </div>
+    </div>
+
+      {phase === 'ready' && <History sessions={sessions} />}
 
       <Sheet open={customOpen} onClose={() => setCustomOpen(false)} title="Custom duration">
         <CustomMinutes initial={draft.minutes} onSave={m => { setDraft(d => ({ ...d, minutes: m })); setCustomOpen(false) }} />
@@ -328,27 +337,26 @@ export default function Focus() {
           ))}
         </div>
       </Sheet>
-    </div>
+    </>
   )
 }
 
-/** Grow the dial to fill wide/tall screens (full screen), never past the viewport width. */
-function useDialScale(big: boolean) {
-  const calc = () => {
-    if (typeof window === 'undefined') return 1
-    const byW = (Math.min(window.innerWidth, 480) - 40) / DIAL
-    // full screen: dial sits at the exact vertical middle, so it may use (half height − bottom controls) on each side
-    const byH = big ? (window.innerHeight - 545) / DIAL : (window.innerHeight - 420) / DIAL
-    return Math.max(0.82, Math.min(big ? 1.22 : 1.05, byW, byH))
-  }
-  const [s, setS] = useState(calc)
+/** Scale the dial to fit the middle zone (keeps it centred, never overlapping the controls). */
+function useFitScale(ref: React.RefObject<HTMLDivElement | null>) {
+  const [s, setS] = useState(1)
   useEffect(() => {
-    const h = () => setS(calc())
-    h()
-    window.addEventListener('resize', h)
-    return () => window.removeEventListener('resize', h)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [big])
+    const el = ref.current
+    if (!el) return
+    const fit = () => {
+      const { width, height } = el.getBoundingClientRect()
+      const avail = Math.min(width - 12, height - 20)
+      setS(Math.max(0.55, Math.min(1.25, avail / DIAL)))
+    }
+    fit()
+    const ro = new ResizeObserver(fit)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [ref])
   return s
 }
 
