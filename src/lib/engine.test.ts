@@ -11,13 +11,14 @@ const day = (nowHHMM: string, completions: Record<string, ActivityCompletion> = 
   buildDay({ date: DAY, today: DAY, nowMinutes: toMin(nowHHMM), template: tpl, overrides: [], extras: [], completions, graceMin })
 
 describe('timetable', () => {
-  it('has the exact 19 activities from 5:00 AM to 9:30 PM', () => {
-    expect(WEEKDAY_BLOCKS).toHaveLength(19)
+  it('has the 20 activities from 5:00 AM to 9:30 PM (incl. Assignments)', () => {
+    expect(WEEKDAY_BLOCKS).toHaveLength(20)
+    expect(WEEKDAY_BLOCKS.find(b => b.id === 'assignments')).toMatchObject({ start: '18:15', end: '19:15' })
     expect(WEEKDAY_BLOCKS[0]).toMatchObject({ start: '05:00', title: 'Wake up and hydrate' })
     expect(WEEKDAY_BLOCKS.at(-1)).toMatchObject({ start: '21:30', title: 'Sleep' })
   })
   it('has exactly one 60-minute study block, followed by trading practice', () => {
-    const study = WEEKDAY_BLOCKS.filter(b => b.category === 'Education')
+    const study = WEEKDAY_BLOCKS.filter(b => b.module === 'study')
     expect(study).toHaveLength(1)
     expect(toMin(study[0].end!) - toMin(study[0].start)).toBe(60)
     expect(WEEKDAY_BLOCKS.find(b => b.start === study[0].end)?.id).toBe('trade-practice')
@@ -58,8 +59,8 @@ describe('live schedule engine', () => {
     const s = dayStats(items)
     expect(s.done).toBe(1)
     expect(s.skipped).toBe(1)
-    expect(s.eligible).toBe(18) // moved item excluded
-    expect(s.pct).toBe(Math.round((1 / 18) * 100))
+    expect(s.eligible).toBe(19) // moved item excluded
+    expect(s.pct).toBe(Math.round((1 / 19) * 100))
   })
   it('per-day overrides reschedule without touching the template', () => {
     const items = buildDay({ date: DAY, today: DAY, nowMinutes: toMin('09:00'), template: tpl, overrides: [{ id: 'o', date: DAY, blockId: 'research', start: '17:45', end: '18:45', createdAt: 0 }], extras: [], completions: {} })

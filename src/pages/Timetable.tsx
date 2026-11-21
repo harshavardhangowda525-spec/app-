@@ -2,7 +2,7 @@ import { AnimatePresence, motion, useMotionValue } from 'framer-motion'
 import { AlertTriangle, Copy, Lock, Pencil, Plus, RotateCcw, Trash2, Undo2 } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { CATEGORIES, CATEGORY_COLOR, CatIcon, Field, Pill, ScreenHeader, Segmented, Sheet, confirmDelete } from '../components/ui'
-import { ConflictNote } from '../components/TaskSheets'
+import { AddTaskSheet, ConflictNote } from '../components/TaskSheets'
 import { useDay, useNow } from '../lib/hooks'
 import { conflictsWith, detectConflicts } from '../lib/schedule'
 import { dateKey, fmt12, fmtRange, fromMin, toMin, uid } from '../lib/time'
@@ -28,6 +28,7 @@ export default function Timetable() {
   const overrides = useStore(s => s.overrides)
   // Locked by default so scrolling never moves a block by accident.
   const [editing, setEditing] = useState(false)
+  const [adding, setAdding] = useState(false)
   const [undo, setUndo] = useState<{ label: string; restore: () => void } | null>(null)
   useEffect(() => { if (!undo) return; const t = setTimeout(() => setUndo(null), 7000); return () => clearTimeout(t) }, [undo])
   useEffect(() => { setEditing(false) }, [mode])
@@ -62,7 +63,7 @@ export default function Timetable() {
   return (
     <div className="space-y-4">
       <ScreenHeader back kicker="Drag blocks to move · 15-min snap" title="Timetable"
-        right={mode !== 'day' ? <Pill variant="lavender" className="h-9" onClick={() => setEdit({ tid: tpl.id, isNew: true, block: { id: `b-${uid().slice(0, 8)}`, title: '', category: 'Personal', start: '10:00', end: '10:30' } })}><Plus size={16} /></Pill> : undefined} />
+        right={<Pill variant="lavender" className="h-9" onClick={() => mode === 'day' ? setAdding(true) : setEdit({ tid: tpl.id, isNew: true, block: { id: `b-${uid().slice(0, 8)}`, title: '', category: 'Personal', start: '10:00', end: '10:30' } })}><Plus size={16} /> Add slot</Pill>} />
       <Segmented value={mode} onChange={setMode} options={[{ v: 'day', l: 'Today only' }, { v: 'weekday', l: 'Weekdays' }, { v: 'weekend', l: 'Weekends' }]} />
       <p className="text-xs text-ink-2">
         {mode === 'day' ? 'Moves here change today only — your master template and past records stay intact.'
@@ -123,6 +124,7 @@ export default function Timetable() {
       </div>
 
       <BlockSheet edit={edit} others={tpl.blocks} onClose={() => setEdit(null)} />
+      <AddTaskSheet open={adding} onClose={() => setAdding(false)} date={today} dayItems={items} />
 
       <AnimatePresence>
         {undo && (

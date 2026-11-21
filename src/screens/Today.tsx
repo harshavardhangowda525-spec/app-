@@ -155,7 +155,7 @@ export default function Today() {
         <div className="grid grid-cols-4 gap-2">
           {[
             { icon: <Timer size={20} className="text-peach" />, l: 'Focus', f: () => focus ? startFocus(focus) : useNav.getState().setTab('focus') },
-            { icon: <Plus size={20} className="text-lavender" />, l: 'Add task', f: () => setAdding(true) },
+            { icon: <Plus size={20} className="text-lavender" />, l: 'Add slot', f: () => setAdding(true) },
             { icon: <CalendarClock size={20} className="text-success" />, l: 'Reschedule', f: () => focus && setSheetItem(focus) },
             { icon: <CalendarDays size={20} className="text-warning" />, l: 'Timetable', f: () => open('timetable') },
           ].map(a => (

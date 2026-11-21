@@ -292,7 +292,7 @@ export const useStore = create<Store>()(
     }),
     {
       name: 'kairo-v1',
-      version: 1,
+      version: 2,
       storage: createJSONStorage(() => idbStorage),
       partialize: (s) => {
         const out: Partial<Data> = {}
@@ -300,7 +300,16 @@ export const useStore = create<Store>()(
         return out as Store
       },
       // Future schema changes: transform old state here; never drop user records.
-      migrate: (persisted) => ({ ...initialData(), ...(persisted as Partial<Data>) }) as Store,
+      migrate: (persisted, version) => {
+        const data = { ...initialData(), ...(persisted as Partial<Data>) }
+        // v2: add the Assignments block (6:15–7:15 PM) to existing templates if not already present
+        if (version < 2) {
+          const blk = WEEKDAY_BLOCKS.find(b => b.id === 'assignments')!
+          data.templates = data.templates.map(t => (t.blocks.some(b => b.id === 'assignments') ? t
+            : { ...t, blocks: [...t.blocks, { ...blk }].sort((a, b) => a.start.localeCompare(b.start)), updatedAt: Date.now() }))
+        }
+        return data as Store
+      },
       merge: (persisted, current) => ({ ...current, ...(persisted as Partial<Data>) }),
       onRehydrateStorage: () => () => { useStore.setState({ hydrated: true }) },
     },

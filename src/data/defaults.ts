@@ -19,6 +19,7 @@ export const WEEKDAY_BLOCKS: ScheduleBlock[] = [
   b('edit', '16:00', '17:00', 'Video editing', 'Content', { module: 'content' }),
   b('crm', '17:00', '17:45', 'Client development and CRM', 'Business', { module: 'business' }),
   b('manifest-pm', '18:00', '18:15', 'Evening manifestation', 'Mindset', { module: 'manifest' }),
+  b('assignments', '18:15', '19:15', 'Assignments', 'Education', { focusMinutes: 60, description: 'NIOS assignments and coursework.' }),
   b('trade-journal', '19:30', '20:00', 'Trading journal', 'Trading', { module: 'trading' }),
   b('read-pm', '20:00', '20:30', 'Evening reading', 'Reading', { module: 'reading', description: 'The Psychology of Money' }),
   b('journal', '20:30', '21:00', 'Daily journaling', 'Reflection', { module: 'journal' }),

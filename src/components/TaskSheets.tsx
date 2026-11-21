@@ -129,7 +129,7 @@ export function AddTaskSheet({ open, onClose, date, dayItems }: { open: boolean;
   useEffect(() => { if (open) { setD(date); setTitle('') } }, [open, date])
   const hits = d === date ? conflictsWith({ id: '_new', start, end: end || undefined }, dayItems.filter(x => x.status !== 'moved')) : []
   return (
-    <Sheet open={open} onClose={onClose} title="Add task">
+    <Sheet open={open} onClose={onClose} title="Add slot">
       <form className="space-y-3" onSubmit={e => {
         e.preventDefault(); if (!title.trim()) return
         addExtra({ title: title.trim(), category, date: d, start, end: end || undefined })
