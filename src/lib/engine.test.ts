@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { WEEKDAY_BLOCKS, defaultTemplates } from '../data/defaults'
+import { WEEKDAY_BLOCKS, WEEKEND_BLOCKS, defaultTemplates } from '../data/defaults'
 import { buildDay, conflictsWith, dayStats, detectConflicts, focusInstance, templateFor } from './schedule'
 import { advance, afterAction, firstDue, nextOccurrence } from './recurrence'
 import { addMonths, toMin } from './time'
@@ -31,8 +31,18 @@ describe('timetable', () => {
     expect(WEEKDAY_BLOCKS.filter(b => b.category === 'Mindset').map(b => b.start)).toEqual(['06:00', '18:00', '21:15'])
     expect(WEEKDAY_BLOCKS.find(b => b.id === 'record')!.end).toBe(WEEKDAY_BLOCKS.find(b => b.id === 'edit')!.start)
   })
-  it('default timetable has no conflicts', () => {
+  it('default timetables have no conflicts', () => {
     expect(detectConflicts(WEEKDAY_BLOCKS)).toEqual([])
+    expect(detectConflicts(WEEKEND_BLOCKS)).toEqual([])
+  })
+  it('weekend: mandatory 1h gym, both books, content + editing, no NIOS/trading/outreach', () => {
+    const gym = WEEKEND_BLOCKS.find(b => b.category === 'Fitness')!
+    expect(toMin(gym.end!) - toMin(gym.start)).toBe(60)
+    const titles = WEEKEND_BLOCKS.map(b => b.title).join('|')
+    for (const t of ['The Lean Startup', 'The Psychology of Money', 'Content creation', 'Video editing', 'Assignments', 'Weekly analytics review', 'Weekly reset', 'Research', 'Develop Kairo'])
+      expect(titles).toContain(t)
+    expect(WEEKEND_BLOCKS.some(b => ['study', 'trade-practice', 'outreach', 'crm'].includes(b.id))).toBe(false)
+    expect(defaultTemplates()[1].blocks.map(b => b.id)).toEqual(WEEKEND_BLOCKS.map(b => b.id))
   })
 })
 

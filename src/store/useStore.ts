@@ -7,7 +7,7 @@ import type {
   ReadingSession, Reminder, ResearchItem, SalesDay, ScheduleBlock, ScheduleTemplate, StudySession,
   StudySubject, TradeJournalEntry, UserSettings,
 } from '../lib/types'
-import { WEEKDAY_BLOCKS, defaultBooks, defaultReminders, defaultSettings, defaultSubjects, defaultTemplates } from '../data/defaults'
+import { LEAN_STARTUP, WEEKDAY_BLOCKS, WEEKEND_BLOCKS, defaultBooks, defaultReminders, defaultSettings, defaultSubjects, defaultTemplates } from '../data/defaults'
 import { dateKey, uid } from '../lib/time'
 import { afterAction, firstDue, nextOccurrence } from '../lib/recurrence'
 
@@ -206,7 +206,7 @@ export const useStore = create<Store>()(
       }),
       resetDay: (date) => set(s => ({ overrides: s.overrides.filter(o => o.date !== date) })),
       resetTemplate: (tid) => set(s => ({
-        templates: s.templates.map(t => (t.id === tid ? { ...t, blocks: WEEKDAY_BLOCKS.map(b => ({ ...b })), updatedAt: Date.now() } : t)),
+        templates: s.templates.map(t => (t.id === tid ? { ...t, blocks: (t.kind === 'weekend' ? WEEKEND_BLOCKS : WEEKDAY_BLOCKS).map(b => ({ ...b })), updatedAt: Date.now() } : t)),
       })),
       setPriorities: (date, items) => set(s => ({ priorities: { ...s.priorities, [date]: items } })),
 
@@ -292,7 +292,7 @@ export const useStore = create<Store>()(
     }),
     {
       name: 'kairo-v1',
-      version: 2,
+      version: 3,
       storage: createJSONStorage(() => idbStorage),
       partialize: (s) => {
         const out: Partial<Data> = {}
@@ -307,6 +307,11 @@ export const useStore = create<Store>()(
           const blk = WEEKDAY_BLOCKS.find(b => b.id === 'assignments')!
           data.templates = data.templates.map(t => (t.blocks.some(b => b.id === 'assignments') ? t
             : { ...t, blocks: [...t.blocks, { ...blk }].sort((a, b) => a.start.localeCompare(b.start)), updatedAt: Date.now() }))
+        }
+        // v3: dedicated Saturday/Sunday schedule + The Lean Startup on the reading list (history is untouched)
+        if (version < 3) {
+          data.templates = data.templates.map(t => (t.kind === 'weekend' ? { ...t, blocks: WEEKEND_BLOCKS.map(b => ({ ...b })), updatedAt: Date.now() } : t))
+          if (!data.books.some(b => b.id === 'book-lean' || /lean startup/i.test(b.title))) data.books = [...data.books, LEAN_STARTUP()]
         }
         return data as Store
       },

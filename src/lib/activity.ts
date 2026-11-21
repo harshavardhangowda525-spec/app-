@@ -12,7 +12,15 @@ export interface ActivityEvent {
   label: string
   minutes?: number
   count?: number
+  /** finer content tag: recording/scripting vs editing */
+  tag?: 'creation' | 'editing'
 }
+
+const EDIT_RE = /edit/i
+const CREATE_RE = /record|content creat|script|shoot|reel/i
+const contentTag = (blockIdOrLabel: string, cat?: string): ActivityEvent['tag'] =>
+  /(^|-)edit$/.test(blockIdOrLabel) || EDIT_RE.test(blockIdOrLabel) ? 'editing'
+    : blockIdOrLabel === 'record' || blockIdOrLabel === 'we-content' || CREATE_RE.test(blockIdOrLabel) || cat === 'Content' ? 'creation' : undefined
 
 const ev = (ts: number, e: Omit<ActivityEvent, 'ts' | 'date' | 'hour'>): ActivityEvent => {
   const d = new Date(ts)
@@ -26,9 +34,10 @@ export function activityEvents(data: Data): ActivityEvent[] {
     // Use the actual completion time, but keep it on the scheduled date (late "complete now" still belongs to its day)
     const at = new Date(c.at)
     const ts = dateKey(at) === c.date ? c.at : new Date(`${c.date}T${c.scheduledStart}:00`).getTime()
-    out.push(ev(ts, { category: c.category, kind: 'task', label: c.title, count: 1 }))
+    out.push(ev(ts, { category: c.category, kind: 'task', label: c.title, count: 1, tag: c.category === 'Content' ? (contentTag(c.blockId) ?? contentTag(c.title, c.category)) : undefined }))
   }
-  for (const f of data.focusSessions) out.push(ev(f.startedAt, { category: f.category, kind: 'focus', label: `Focus · ${f.label}`, minutes: f.actualMinutes }))
+  for (const f of data.focusSessions) out.push(ev(f.startedAt, { category: f.category, kind: 'focus', label: `Focus · ${f.label}`, minutes: f.actualMinutes, tag: f.category === 'Content' ? contentTag(f.label, f.category) : undefined }))
+  for (const c of data.content) out.push(ev(c.createdAt, { category: 'Content', kind: 'task', label: `Content idea · ${c.title}`, tag: 'creation' }))
   for (const s of data.studySessions) out.push(ev(s.createdAt, { category: 'Education', kind: 'study', label: 'Study session logged', minutes: s.minutes }))
   for (const r of data.readingSessions) out.push(ev(r.createdAt, { category: 'Reading', kind: 'reading', label: `Read pp. ${r.pagesFrom}–${r.pagesTo}`, minutes: r.minutes }))
   for (const m of data.manifestations) if (m.done) out.push(ev(m.at, { category: 'Mindset', kind: 'manifest', label: `${m.slot[0].toUpperCase()}${m.slot.slice(1)} manifestation` }))
@@ -42,7 +51,7 @@ export function activityEvents(data: Data): ActivityEvent[] {
   return out.sort((a, b) => a.ts - b.ts)
 }
 
-export type Metric = 'all' | 'tasks' | 'focus' | Category
+export type Metric = 'all' | 'tasks' | 'focus' | 'creation' | 'editing' | Category
 
 export const METRICS: { v: Metric; l: string; unit: string }[] = [
   { v: 'all', l: 'All activity', unit: 'contributions' },
@@ -53,7 +62,8 @@ export const METRICS: { v: Metric; l: string; unit: string }[] = [
   { v: 'Business', l: 'Business', unit: 'business contributions' },
   { v: 'Fitness', l: 'Fitness', unit: 'fitness contributions' },
   { v: 'Reading', l: 'Reading', unit: 'reading contributions' },
-  { v: 'Content', l: 'Content', unit: 'content contributions' },
+  { v: 'creation', l: 'Content creation', unit: 'content creation sessions' },
+  { v: 'editing', l: 'Video editing', unit: 'video editing sessions' },
   { v: 'Mindset', l: 'Mindset', unit: 'mindset contributions' },
   { v: 'Trading', l: 'Trading', unit: 'trading contributions' },
 ]
@@ -61,8 +71,9 @@ export const METRICS: { v: Metric; l: string; unit: string }[] = [
 /** Value an event contributes under a metric (0 = not counted). */
 export function weight(e: ActivityEvent, m: Metric): number {
   if (m === 'all') return e.count ?? 1
-  if (m === 'tasks') return e.kind === 'task' ? 1 : 0
+  if (m === 'tasks') return e.kind === 'task' && !e.label.startsWith('Content idea') ? 1 : 0
   if (m === 'focus') return e.kind === 'focus' ? e.minutes ?? 0 : 0
+  if (m === 'creation' || m === 'editing') return e.tag === m ? 1 : 0
   return e.category === m ? (e.kind === 'focus' ? 1 : e.count ?? 1) : 0
 }
 
