@@ -1,0 +1,98 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+  --color-base: #0A0A12;
+  --color-elevated: #141424;
+  --color-ink: #F5F3FA;
+  --color-ink-2: #9A98AE;
+  --color-ink-3: #5E5C72;
+  --color-on-peach: #2A1420;
+  --color-peach: #FFB59A;
+  --color-pink: #FF8FA8;
+  --color-lavender: #C9B8FF;
+  --color-purple-deep: #1B1430;
+  --color-success: #9BE7C4;
+  --color-warning: #FFCF7A;
+  --color-danger: #FF8A8A;
+}
+
+:root {
+  color-scheme: dark;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html, body, #root { height: 100%; }
+body {
+  margin: 0;
+  background: var(--color-base);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  overscroll-behavior-y: none;
+}
+
+/* Surfaces */
+.glass { background: rgb(255 255 255 / 0.045); border: 1px solid rgb(255 255 255 / 0.08); }
+.glass-strong { background: rgb(255 255 255 / 0.08); border: 1px solid rgb(255 255 255 / 0.1); }
+.ambient {
+  background:
+    radial-gradient(120% 60% at 50% -8%, rgb(77 41 133 / 0.55), transparent 62%),
+    var(--color-base);
+}
+.peach-card {
+  background:
+    radial-gradient(90% 70% at 15% 0%, rgb(255 255 255 / 0.32), transparent 60%),
+    linear-gradient(135deg, #FFC79E 0%, #FF9E9E 55%, #EE789E 100%);
+  border: 1px solid rgb(255 237 224 / 0.6);
+  box-shadow: 0 14px 36px -6px rgb(255 140 140 / 0.3);
+}
+.peach-grad { background: linear-gradient(90deg, #FFC4AE, #FF8FA8); }
+.lav-grad { background: linear-gradient(90deg, #C9B8FF, #FFB59A); }
+
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { scrollbar-width: none; }
+
+input, textarea, select { font: inherit; color: inherit; }
+.field {
+  width: 100%;
+  background: rgb(255 255 255 / 0.05);
+  border: 1px solid rgb(255 255 255 / 0.09);
+  border-radius: 14px;
+  padding: 11px 13px;
+  font-size: 14px;
+  outline: none;
+  transition: border-color .15s;
+}
+.field:focus { border-color: rgb(201 184 255 / 0.6); }
+.field::placeholder { color: var(--color-ink-3); }
+select.field option { background: #141424; }
+input[type="date"].field, input[type="time"].field { color-scheme: dark; }
+
+.label { font-size: 11px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--color-ink-2); }
+
+/* Focus timer motion (transform/opacity only for low-end GPUs) */
+@keyframes breathe { 0%,100% { transform: scale(.94); opacity: .7 } 50% { transform: scale(1.06); opacity: 1 } }
+@keyframes waveL { from { transform: translateX(0) } to { transform: translateX(-50%) } }
+@keyframes waveR { from { transform: translateX(-50%) } to { transform: translateX(0) } }
+@keyframes drift { 0% { transform: translateY(0); opacity: 0 } 15% { opacity: var(--o, .6) } 85% { opacity: var(--o, .6) } 100% { transform: translateY(-36px); opacity: 0 } }
+@keyframes heartbeat { 0%,100% { transform: scale(1); opacity: .75 } 50% { transform: scale(1.45); opacity: .35 } }
+@keyframes pulse-soft { 0%,100% { opacity: 1 } 50% { opacity: .55 } }
+@keyframes spin-slow { to { transform: rotate(360deg) } }
+@keyframes ring-out { from { transform: scale(.7); opacity: .9 } to { transform: scale(1.6); opacity: 0 } }
+
+.anim-breathe { animation: breathe 8s ease-in-out infinite; }
+.anim-waveL { animation: waveL 5s linear infinite; }
+.anim-waveR { animation: waveR 7s linear infinite; }
+.anim-drift { animation: drift var(--d, 8s) ease-in-out infinite; animation-delay: var(--delay, 0s); }
+.anim-heartbeat { animation: heartbeat 1s ease-in-out infinite; }
+.anim-pulse-soft { animation: pulse-soft 1.6s ease-in-out infinite; }
+.anim-spin-slow { animation: spin-slow 12s linear infinite; }
+.anim-ring-out { animation: ring-out 2.4s cubic-bezier(.2,.7,.3,1) infinite; }
+.paused-anim, .paused-anim * { animation-play-state: paused !important; }
+
+@media (prefers-reduced-motion: reduce) {
+  .anim-breathe, .anim-waveL, .anim-waveR, .anim-drift, .anim-heartbeat, .anim-spin-slow, .anim-ring-out { animation: none !important; }
+}
+.reduce-motion .anim-breathe, .reduce-motion .anim-waveL, .reduce-motion .anim-waveR, .reduce-motion .anim-drift,
+.reduce-motion .anim-heartbeat, .reduce-motion .anim-spin-slow, .reduce-motion .anim-ring-out { animation: none !important; }

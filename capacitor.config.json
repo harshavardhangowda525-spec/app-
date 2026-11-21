@@ -1,0 +1,8 @@
+{
+  "appId": "app.kairo.personal",
+  "appName": "Kairo",
+  "webDir": "dist",
+  "plugins": {
+    "LocalNotifications": { "smallIcon": "ic_stat_icon", "iconColor": "#FFB59A" }
+  }
+}
