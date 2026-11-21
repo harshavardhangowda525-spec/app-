@@ -121,9 +121,12 @@ export default function Focus() {
   const endsAt = active && !active.pausedAt ? new Date(now.getTime() + remaining) : null
   const liquidDark = frac > 0.55
   const calm = phase === 'paused'
+  const immersive = phase === 'running' || phase === 'paused'
+  const dialScale = useDialScale(immersive || fs)
 
   return (
-    <div className={`relative -mx-4 px-4 min-h-[calc(100dvh-24px)] overflow-hidden ${calm || reduced ? 'paused-anim' : ''} ${reduced ? 'reduce-motion' : ''}`}>
+    <div className={`relative -mx-4 px-4 flex flex-col overflow-hidden ${calm || reduced ? 'paused-anim' : ''} ${reduced ? 'reduce-motion' : ''}`}
+      style={{ minHeight: immersive ? 'calc(100dvh - max(12px, env(safe-area-inset-top)) - max(16px, env(safe-area-inset-bottom)))' : 'calc(100dvh - max(12px, env(safe-area-inset-top)) - 112px)' }}>
       {/* Particles */}
       <div className="pointer-events-none absolute inset-0" style={{ opacity: phase === 'ready' ? 0.55 : calm ? 0.25 : 1, transition: 'opacity .6s' }}>
         {PARTICLES.map(([x, y, r, o, d, delay], i) => (
@@ -152,8 +155,10 @@ export default function Focus() {
         </motion.button>
       </div>
 
-      {/* Dial */}
-      <div className="relative mx-auto mt-6" style={{ width: DIAL, height: DIAL }}>
+      {/* Dial — centred in the free space (true middle of the screen in full-screen / running mode) */}
+      {immersive && <div className="flex-1" />}
+      <div className={immersive ? 'pointer-events-none absolute inset-x-0 top-1/2 -translate-y-1/2 grid place-items-center' : 'relative flex-1 grid place-items-center py-6'}>
+      <div className="relative" style={{ width: DIAL, height: DIAL, transform: `scale(${dialScale})`, transition: 'transform .5s cubic-bezier(.2,.8,.2,1)' }}>
         <div className="absolute anim-breathe rounded-full pointer-events-none"
           style={{
             inset: phase === 'complete' ? -80 : -50, opacity: phase === 'ready' ? 0.7 : calm ? 0.25 : 1, transition: 'opacity .6s, inset .8s',
@@ -223,8 +228,10 @@ export default function Focus() {
         </div>
       </div>
 
+      </div>
+
       {/* Below dial */}
-      <div className="relative mt-5 space-y-4">
+      <div className="relative space-y-4 pb-2">
         {phase === 'ready' ? (
           <div className="flex justify-center gap-1.5 flex-wrap">
             {PRESETS.map(m => (
@@ -323,6 +330,26 @@ export default function Focus() {
       </Sheet>
     </div>
   )
+}
+
+/** Grow the dial to fill wide/tall screens (full screen), never past the viewport width. */
+function useDialScale(big: boolean) {
+  const calc = () => {
+    if (typeof window === 'undefined') return 1
+    const byW = (Math.min(window.innerWidth, 480) - 40) / DIAL
+    // full screen: dial sits at the exact vertical middle, so it may use (half height − bottom controls) on each side
+    const byH = big ? (window.innerHeight - 545) / DIAL : (window.innerHeight - 420) / DIAL
+    return Math.max(0.82, Math.min(big ? 1.22 : 1.05, byW, byH))
+  }
+  const [s, setS] = useState(calc)
+  useEffect(() => {
+    const h = () => setS(calc())
+    h()
+    window.addEventListener('resize', h)
+    return () => window.removeEventListener('resize', h)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [big])
+  return s
 }
 
 function fmtTimer(ms: number) {

@@ -60,7 +60,7 @@ export default function App() {
   return (
     <MotionConfig reducedMotion={reduced ? 'always' : 'never'}>
       <div className={`ambient min-h-full ${reduced ? 'reduce-motion' : ''}`}>
-        <main className="mx-auto max-w-[480px] px-4 pt-[max(12px,env(safe-area-inset-top))] pb-32">
+        <main className={`mx-auto max-w-[480px] px-4 pt-[max(12px,env(safe-area-inset-top))] ${immersive ? 'pb-[max(16px,env(safe-area-inset-bottom))]' : 'pb-32'}`}>
           {/* Entrance-only transition: exit animations + shared layoutIds can stall AnimatePresence, so pages swap instantly and fade/slide in. */}
           <motion.div key={key}
             initial={reduced ? { opacity: 0 } : { opacity: 0, x: page ? 24 * dir : 0, y: page ? 0 : 8 }}
