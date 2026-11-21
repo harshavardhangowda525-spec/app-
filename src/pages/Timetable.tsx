@@ -1,6 +1,6 @@
-import { motion, useMotionValue } from 'framer-motion'
-import { AlertTriangle, Copy, Plus, Trash2 } from 'lucide-react'
-import { useMemo, useRef, useState } from 'react'
+import { AnimatePresence, motion, useMotionValue } from 'framer-motion'
+import { AlertTriangle, Copy, Lock, Pencil, Plus, RotateCcw, Trash2, Undo2 } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { CATEGORIES, CATEGORY_COLOR, CatIcon, Field, Pill, ScreenHeader, Segmented, Sheet, confirmDelete } from '../components/ui'
 import { ConflictNote } from '../components/TaskSheets'
 import { useDay, useNow } from '../lib/hooks'
@@ -23,6 +23,14 @@ export default function Timetable() {
   const reschedule = useStore(s => s.reschedule)
   const upsertBlock = useStore(s => s.upsertBlock)
   const copyTemplate = useStore(s => s.copyTemplate)
+  const resetDay = useStore(s => s.resetDay)
+  const resetTemplate = useStore(s => s.resetTemplate)
+  const overrides = useStore(s => s.overrides)
+  // Locked by default so scrolling never moves a block by accident.
+  const [editing, setEditing] = useState(false)
+  const [undo, setUndo] = useState<{ label: string; restore: () => void } | null>(null)
+  useEffect(() => { if (!undo) return; const t = setTimeout(() => setUndo(null), 7000); return () => clearTimeout(t) }, [undo])
+  useEffect(() => { setEditing(false) }, [mode])
   const [edit, setEdit] = useState<{ tid: string; block: ScheduleBlock; isNew: boolean } | null>(null)
 
   const tpl = templates.find(t => t.kind === (mode === 'weekend' ? 'weekend' : 'weekday'))!
@@ -39,8 +47,16 @@ export default function Timetable() {
     const s = Math.min(Math.max(toMin(b.start) + d, 0), 23 * 60 + 45)
     const dur = b.end ? toMin(b.end) - toMin(b.start) : 0
     const ns = fromMin(s), ne = b.end ? fromMin(Math.min(s + dur, 23 * 60 + 59)) : undefined
+    // Snapshot so the move can be undone exactly (including "no change existed").
+    const st = useStore.getState()
+    const prevOverrides = st.overrides
+    const prevTemplates = st.templates
     if (mode === 'day' && b.inst) reschedule(b.inst, ns, ne)
     else upsertBlock(tpl.id, { ...b, start: ns, end: ne })
+    setUndo({
+      label: `${b.title} → ${fmt12(ns)}`,
+      restore: () => useStore.setState(mode === 'day' ? { overrides: prevOverrides } : { templates: prevTemplates }),
+    })
   }
 
   return (
@@ -52,6 +68,23 @@ export default function Timetable() {
         {mode === 'day' ? 'Moves here change today only — your master template and past records stay intact.'
           : 'Editing the master template affects future days. Completed history is never rewritten.'}
       </p>
+      <div className="flex gap-2">
+        <Pill variant={editing ? 'lavender' : 'glass'} className="flex-1 h-10" onClick={() => setEditing(v => !v)}>
+          {editing ? <><Lock size={15} /> Done editing</> : <><Pencil size={15} /> Edit times</>}
+        </Pill>
+        {mode === 'day' ? (
+          <Pill className="flex-1 h-10" disabled={!overrides.some(o => o.date === today)}
+            onClick={() => { if (window.confirm("Undo all of today's time changes and go back to your normal schedule?")) { resetDay(today); setUndo(null) } }}>
+            <RotateCcw size={15} /> Reset today
+          </Pill>
+        ) : (
+          <Pill className="flex-1 h-10"
+            onClick={() => { if (window.confirm(`Restore the ${mode === 'weekend' ? 'weekend' : 'weekday'} template to your original 5:00 AM – 9:30 PM schedule? Your completed history is kept.`)) { resetTemplate(tpl.id); setUndo(null) } }}>
+            <RotateCcw size={15} /> Restore original
+          </Pill>
+        )}
+      </div>
+      {editing && <div className="text-[11px] text-lavender text-center -mt-1">Drag a block up or down to move it · tap Done when finished</div>}
       {mode === 'weekend' && (
         <Pill className="h-8 text-xs" onClick={() => { if (window.confirm('Replace the weekend template with a copy of the weekday template?')) copyTemplate('tpl-weekday', 'tpl-weekend') }}>
           <Copy size={14} /> Copy weekday → weekend
@@ -84,17 +117,27 @@ export default function Timetable() {
           </div>
         )}
         {blocks.map(b => (
-          <DragBlock key={b.id} b={b} conflict={conflictIds.has(b.id)} onDrop={d => onDrop(b, d)}
+          <DragBlock key={b.id} b={b} locked={!editing} conflict={conflictIds.has(b.id)} onDrop={d => onDrop(b, d)}
             onTap={() => mode !== 'day' && setEdit({ tid: tpl.id, block: b, isNew: false })} />
         ))}
       </div>
 
       <BlockSheet edit={edit} others={tpl.blocks} onClose={() => setEdit(null)} />
+
+      <AnimatePresence>
+        {undo && (
+          <motion.div initial={{ y: 30, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 30, opacity: 0 }}
+            className="fixed z-50 left-1/2 -translate-x-1/2 bottom-[calc(max(14px,env(safe-area-inset-bottom))+78px)] w-[calc(100%-32px)] max-w-[440px] rounded-2xl bg-[#241c3e] border border-lavender/30 shadow-[0_12px_30px_rgba(0,0,0,.5)] px-4 py-3 flex items-center gap-3">
+            <span className="flex-1 text-sm font-semibold truncate">Moved {undo.label}</span>
+            <button onClick={() => { undo.restore(); setUndo(null) }} className="flex items-center gap-1.5 text-sm font-bold text-lavender"><Undo2 size={16} /> Undo</button>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   )
 }
 
-function DragBlock({ b, conflict, onDrop, onTap }: { b: ScheduleBlock & { inst?: ActivityInstance }; conflict: boolean; onDrop: (deltaMin: number) => void; onTap: () => void }) {
+function DragBlock({ b, conflict, locked, onDrop, onTap }: { b: ScheduleBlock & { inst?: ActivityInstance }; conflict: boolean; locked: boolean; onDrop: (deltaMin: number) => void; onTap: () => void }) {
   const y = useMotionValue(0)
   const [dragging, setDragging] = useState(false)
   const [preview, setPreview] = useState(0)
@@ -105,13 +148,13 @@ function DragBlock({ b, conflict, onDrop, onTap }: { b: ScheduleBlock & { inst?:
   const snapPreview = Math.round(preview / PX / SNAP) * SNAP
   return (
     <motion.div
-      drag="y" dragMomentum={false} style={{ y, top: (s - DAY_START) * PX + 8, height: h }}
+      drag={locked ? false : 'y'} dragMomentum={false} style={{ y, top: (s - DAY_START) * PX + 8, height: h }}
       onDragStart={() => { setDragging(true); moved.current = true }}
       onDrag={() => setPreview(y.get())}
       onDragEnd={() => { setDragging(false); onDrop(y.get() / PX); y.set(0); setPreview(0); setTimeout(() => (moved.current = false), 50) }}
       onTap={() => { if (!moved.current) onTap() }}
       whileDrag={{ scale: 1.03, zIndex: 30, boxShadow: '0 12px 30px rgba(0,0,0,.5)' }}
-      className={`absolute left-14 right-2 rounded-xl px-2.5 py-1 flex items-start gap-2 overflow-hidden cursor-grab active:cursor-grabbing touch-none select-none ${status === 'done' ? 'opacity-55' : ''}`}
+      className={`absolute left-14 right-2 rounded-xl px-2.5 py-1 flex items-start gap-2 overflow-hidden ${locked ? '' : 'cursor-grab active:cursor-grabbing touch-none ring-1 ring-lavender/25'} select-none ${status === 'done' ? 'opacity-55' : ''}`}
       title={b.title}
     >
       <div className="absolute inset-0 rounded-xl" style={{ background: `${CATEGORY_COLOR[b.category]}1c`, border: `1px solid ${conflict ? '#FFCF7A' : `${CATEGORY_COLOR[b.category]}44`}` }} />

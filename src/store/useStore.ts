@@ -7,7 +7,7 @@ import type {
   ReadingSession, Reminder, ResearchItem, SalesDay, ScheduleBlock, ScheduleTemplate, StudySession,
   StudySubject, TradeJournalEntry, UserSettings,
 } from '../lib/types'
-import { defaultBooks, defaultReminders, defaultSettings, defaultSubjects, defaultTemplates } from '../data/defaults'
+import { WEEKDAY_BLOCKS, defaultBooks, defaultReminders, defaultSettings, defaultSubjects, defaultTemplates } from '../data/defaults'
 import { dateKey, uid } from '../lib/time'
 import { afterAction, firstDue, nextOccurrence } from '../lib/recurrence'
 
@@ -66,6 +66,10 @@ interface Actions {
   upsertBlock: (templateId: string, block: ScheduleBlock) => void
   removeBlock: (templateId: string, blockId: string) => void
   copyTemplate: (fromId: string, toId: string) => void
+  /** Drop every per-day time change for `date` (completions/history untouched). */
+  resetDay: (date: string) => void
+  /** Restore a template to the original 5:00 AM – 9:30 PM schedule. */
+  resetTemplate: (templateId: string) => void
   setPriorities: (date: string, items: string[]) => void
   // focus
   startFocus: (f: Omit<ActiveFocus, 'startedAt' | 'pausedTotalMs'>) => void
@@ -200,6 +204,10 @@ export const useStore = create<Store>()(
         if (!from) return {}
         return { templates: s.templates.map(t => (t.id === toId ? { ...t, blocks: from.blocks.map(b => ({ ...b })), updatedAt: Date.now() } : t)) }
       }),
+      resetDay: (date) => set(s => ({ overrides: s.overrides.filter(o => o.date !== date) })),
+      resetTemplate: (tid) => set(s => ({
+        templates: s.templates.map(t => (t.id === tid ? { ...t, blocks: WEEKDAY_BLOCKS.map(b => ({ ...b })), updatedAt: Date.now() } : t)),
+      })),
       setPriorities: (date, items) => set(s => ({ priorities: { ...s.priorities, [date]: items } })),
 
       startFocus: (f) => set({ activeFocus: { ...f, startedAt: Date.now(), pausedTotalMs: 0 } }),
