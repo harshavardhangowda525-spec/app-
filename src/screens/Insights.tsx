@@ -4,6 +4,7 @@ import { Card, MiniBars, ScreenHeader, Section, Segmented, Stat } from '../compo
 import { dailySummary, doneOn, focusMinutes, hasRecords, lastNDays, sales, statsFor, streak } from '../lib/analytics'
 import { addDays, dateKey, fmtDur, parseKey, prettyDate, weekdayShort, weekOf } from '../lib/time'
 import { useStore } from '../store/useStore'
+import Heatmap from '../components/Heatmap'
 
 export default function Insights() {
   const data = useStore()
@@ -46,6 +47,7 @@ export default function Insights() {
   return (
     <div className="space-y-4">
       <ScreenHeader kicker="Built from your records only" title="Insights" />
+      <Heatmap />
       <Segmented value={range} onChange={setRange} options={[{ v: 'week', l: 'This week' }, { v: 'last', l: 'Last week' }]} />
 
       <Card className="space-y-3">

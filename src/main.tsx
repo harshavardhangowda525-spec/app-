@@ -8,7 +8,17 @@ import { initInstall } from './lib/install'
 initInstall()
 
 if (navigator.storage?.persist) navigator.storage.persist().catch(() => {})
-registerSW({ immediate: true })
+// autoUpdate: a new version installs and the app reloads itself. Check on open, on return to the app, and every 30 min,
+// so an installed (full-screen) Kairo picks up new releases without reinstalling.
+registerSW({
+  immediate: true,
+  onRegisteredSW(_url, reg) {
+    if (!reg) return
+    const check = () => { if (navigator.onLine) reg.update().catch(() => {}) }
+    setInterval(check, 30 * 60 * 1000)
+    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') check() })
+  },
+})
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
