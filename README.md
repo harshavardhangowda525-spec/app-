@@ -28,7 +28,7 @@ On the phone, allow notifications. On Android 12+, also allow *Alarms & reminder
 
 ## Health
 
-- **Meal photos (Grok):** open More → Settings → *Meal photo AI · Grok* and paste your xAI API key. The key is stored only on that phone (not in backups, GitHub or Vercel). Photos go through `/api/analyze-meal`, a Vercel relay that forwards them to xAI and stores nothing. xAI bills per photo.
+- **Meal photos (Groq or Grok):** open More → Settings → *Meal photo AI* and paste a Groq key (`gsk_…`, Llama 4 vision, free tier) or an xAI Grok key (`xai-…`); the provider is detected from the key. The key is stored only on that phone (not in backups, GitHub or Vercel). Photos go through `/api/analyze-meal`, a Vercel relay that forwards them to that provider and stores nothing.
 - **Calorie targets:** Health → tap the goal chip → enter weight, height and age. Targets are Mifflin-St Jeor × 1.55 plus a +300 kcal (lean bulk) or +500 kcal (bulk) surplus.
 - **Sleep (Android app only):** build the APK (below), open Health → Sleep → *Open settings*, then allow **Usage access** for Kairo. Each morning Kairo reads screen on/off history from 9:30 PM to noon and detects your sleep, wake-ups and score. Nothing leaves the phone.
 

@@ -8,7 +8,7 @@ import { openUsageAccess, screenEvents, sleepAvailable, sleepPermission } from '
 import { addDays, dateKey, fmtDur, parseKey, prettyDate, uid, weekdayShort } from '../lib/time'
 import { lastNDays as lastNDaysSafe } from '../lib/analytics'
 import type { FoodItem, MealEntry, SleepRecord } from '../lib/types'
-import { analyzeMeal, compressImage, getXaiKey } from '../lib/vision'
+import { analyzeMeal, compressImage, getXaiKey, providerName } from '../lib/vision'
 import { useStore } from '../store/useStore'
 
 const APPETITE = [['😶', 'None'], ['🙂', 'Light'], ['😋', 'Hungry'], ['🤤', 'Very'], ['🔥', 'Starving']] as const
@@ -313,7 +313,7 @@ function MealFlow({ initial, t, onClose }: { initial: MealEntry | null; t: Targe
         <div className="absolute top-[max(16px,env(safe-area-inset-top))] inset-x-4 flex justify-between items-center">
           <button onClick={onClose} aria-label="Close" className="size-9 rounded-full bg-black/50 border border-white/15 grid place-items-center"><X size={16} /></button>
           <span className="rounded-full bg-black/55 border border-white/15 px-3 py-1.5 text-[11px] font-bold">
-            {phase === 'scanning' ? 'Analysing with Grok…' : phase === 'pick' ? 'Frame your plate' : phase === 'error' ? 'Analysis failed' : initial ? 'Edit meal' : 'Review & log'}
+            {phase === 'scanning' ? `Analysing with ${providerName()}…` : phase === 'pick' ? 'Frame your plate' : phase === 'error' ? 'Analysis failed' : initial ? 'Edit meal' : 'Review & log'}
           </span>
           <span className="size-9" />
         </div>
@@ -332,7 +332,7 @@ function MealFlow({ initial, t, onClose }: { initial: MealEntry | null; t: Targe
         {phase === 'pick' && (
           <motion.div key="pick" initial={{ y: 40, opacity: 0 }} animate={{ y: 0, opacity: 1 }} className="absolute inset-x-0 bottom-0 top-[58%] px-5 pt-6 text-center space-y-2">
             <div className="text-lg font-extrabold">Snap your plate</div>
-            <div className="text-sm text-ink-2">{hasKey ? 'Grok identifies the food, portions, calories and macros. Kairo scores it for your bulk.' : 'Add your xAI (Grok) key in Settings for automatic analysis — or type the food yourself.'}</div>
+            <div className="text-sm text-ink-2">{hasKey ? `${providerName()} identifies the food, portions, calories and macros. Kairo scores it for your bulk.` : 'Add your Groq or Grok key in Settings for automatic analysis — or type the food yourself.'}</div>
           </motion.div>
         )}
         {phase === 'scanning' && (
@@ -345,7 +345,7 @@ function MealFlow({ initial, t, onClose }: { initial: MealEntry | null; t: Targe
                 <span className="text-sm font-semibold">{l}</span>
               </motion.div>
             ))}
-            <div className="text-[11px] text-ink-3 pt-2">Grok is reading your photo — usually a few seconds.</div>
+            <div className="text-[11px] text-ink-3 pt-2">{providerName()} is reading your photo — usually a few seconds.</div>
           </motion.div>
         )}
         {phase === 'error' && (

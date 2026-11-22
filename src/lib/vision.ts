@@ -8,7 +8,10 @@ export const setXaiKey = (k: string) => { try { k ? localStorage.setItem(KEY, k.
 export const getXaiModel = () => { try { return localStorage.getItem(MODEL) ?? '' } catch { return '' } }
 export const setXaiModel = (m: string) => { try { m ? localStorage.setItem(MODEL, m.trim()) : localStorage.removeItem(MODEL) } catch { /* ignore */ } }
 
-export interface MealAnalysis { title: string; items: FoodItem[]; confidence?: string; model?: string }
+export interface MealAnalysis { title: string; items: FoodItem[]; confidence?: string; model?: string; provider?: string }
+
+/** gsk_… = Groq (Llama 4 vision), xai-… = xAI Grok. */
+export const providerName = (k = getXaiKey()) => (k.startsWith('gsk_') ? 'Groq' : k ? 'xAI Grok' : '')
 
 /** Downscale for upload + on-device storage (keeps a POCO C55 fast and IndexedDB small). */
 export async function compressImage(file: File, max = 1024, q = 0.72): Promise<string> {
@@ -26,10 +29,10 @@ export async function compressImage(file: File, max = 1024, q = 0.72): Promise<s
 
 export async function analyzeMeal(image: string): Promise<MealAnalysis> {
   const key = getXaiKey()
-  if (!key) throw new Error('Add your xAI (Grok) API key in Settings to analyse photos.')
+  if (!key) throw new Error('Add your Groq (or xAI Grok) API key in Settings to analyse photos.')
   const r = await fetch('/api/analyze-meal', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'x-xai-key': key },
+    headers: { 'Content-Type': 'application/json', 'x-ai-key': key },
     body: JSON.stringify({ image, model: getXaiModel() || undefined }),
   })
   const body = await r.json().catch(() => ({}))
@@ -39,5 +42,5 @@ export async function analyzeMeal(image: string): Promise<MealAnalysis> {
     kcal: Math.max(0, Number(i.kcal) || 0), protein: Math.max(0, Number(i.protein) || 0),
     carbs: Math.max(0, Number(i.carbs) || 0), fat: Math.max(0, Number(i.fat) || 0),
   }))
-  return { title: String(body.title || 'Meal'), items, confidence: body.confidence, model: body.model }
+  return { title: String(body.title || 'Meal'), items, confidence: body.confidence, model: body.model, provider: body.provider }
 }

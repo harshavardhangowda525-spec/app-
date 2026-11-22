@@ -32,7 +32,7 @@ export default function Settings() {
       <Section title="App">
         <Card className="space-y-2"><InstallButton /></Card>
       </Section>
-      <Section title="Meal photo AI · Grok">
+      <Section title="Meal photo AI">
         <AiKeyCard />
       </Section>
       <Section title="Profile">

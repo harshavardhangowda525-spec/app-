@@ -1,8 +1,11 @@
-// Kairo meal-photo relay → xAI Grok vision.
-// The user's xAI key arrives in the `x-xai-key` header from their own device and is forwarded once.
+// Kairo meal-photo relay → Groq (Llama 4 vision) or xAI Grok vision, chosen by the key prefix.
+// The user's key arrives in the `x-ai-key` header from their own device and is forwarded once.
 // Nothing is stored or logged: no key, no photo, no result.
-const XAI_URL = 'https://api.x.ai/v1/chat/completions'
-const DEFAULT_MODELS = ['grok-4', 'grok-2-vision-1212']
+const PROVIDERS = {
+  groq: { url: 'https://api.groq.com/openai/v1/chat/completions', models: ['meta-llama/llama-4-scout-17b-16e-instruct', 'meta-llama/llama-4-maverick-17b-128e-instruct'], name: 'Groq' },
+  xai: { url: 'https://api.x.ai/v1/chat/completions', models: ['grok-4', 'grok-2-vision-1212'], name: 'xAI' },
+}
+const providerFor = key => (key.startsWith('gsk_') ? 'groq' : 'xai')
 
 const PROMPT = `You are a precise sports nutritionist. Identify every food on the plate in this photo (Indian dishes included), estimate each portion in grams, and estimate calories and macros.
 Reply with ONLY minified JSON, no markdown:
@@ -17,34 +20,36 @@ function parseJson(text) {
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'POST only' })
-  const key = req.headers['x-xai-key']
-  if (!key || typeof key !== 'string' || key.length < 20) return res.status(400).json({ error: 'Missing xAI API key — add it in Kairo Settings.' })
+  const key = req.headers['x-ai-key'] || req.headers['x-xai-key']
+  if (!key || typeof key !== 'string' || key.length < 20) return res.status(400).json({ error: 'Missing AI key — add your Groq or xAI key in Kairo Settings.' })
+  const prov = PROVIDERS[providerFor(key)]
   const { image, model } = req.body || {}
   if (typeof image !== 'string' || !image.startsWith('data:image/') || image.length > 4_000_000)
     return res.status(400).json({ error: 'Send one compressed image (data URL, under ~3 MB).' })
 
-  const models = model ? [model, ...DEFAULT_MODELS.filter(m => m !== model)] : DEFAULT_MODELS
+  const models = model ? [model, ...prov.models.filter(m => m !== model)] : prov.models
   let lastErr = 'Unknown error'
   for (const m of models) {
     try {
-      const r = await fetch(XAI_URL, {
+      const r = await fetch(prov.url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
         body: JSON.stringify({
           model: m,
           temperature: 0.2,
-          messages: [{ role: 'user', content: [{ type: 'image_url', image_url: { url: image, detail: 'high' } }, { type: 'text', text: PROMPT }] }],
+          max_tokens: 800,
+          messages: [{ role: 'user', content: [{ type: 'text', text: PROMPT }, { type: 'image_url', image_url: { url: image } }] }],
         }),
       })
       const body = await r.json().catch(() => ({}))
       if (!r.ok) {
-        lastErr = body?.error?.message || body?.error || `xAI error ${r.status}`
-        if (r.status === 401 || r.status === 403) return res.status(401).json({ error: 'xAI rejected the API key. Check it in Kairo Settings.' })
-        if (r.status === 429) return res.status(429).json({ error: 'xAI rate limit or credits exhausted. Try again shortly.' })
+        lastErr = body?.error?.message || body?.error || `${prov.name} error ${r.status}`
+        if (r.status === 401 || r.status === 403) return res.status(401).json({ error: `${prov.name} rejected the API key. Check it in Kairo Settings.` })
+        if (r.status === 429) return res.status(429).json({ error: `${prov.name} rate limit reached. Try again in a minute.` })
         continue // model not available → try the next one
       }
       const out = parseJson(body?.choices?.[0]?.message?.content)
-      return res.status(200).json({ ...out, model: m })
+      return res.status(200).json({ ...out, model: m, provider: prov.name })
     } catch (e) {
       lastErr = e?.message || String(e)
     }
