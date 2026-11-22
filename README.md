@@ -26,6 +26,12 @@ npx cap open android      # opens Android Studio → Run ▶ on the phone (USB d
 
 On the phone, allow notifications. On Android 12+, also allow *Alarms & reminders* for Kairo, and turn off MIUI battery optimisation for it so reminders fire on time.
 
+## Health
+
+- **Meal photos (Grok):** open More → Settings → *Meal photo AI · Grok* and paste your xAI API key. The key is stored only on that phone (not in backups, GitHub or Vercel). Photos go through `/api/analyze-meal`, a Vercel relay that forwards them to xAI and stores nothing. xAI bills per photo.
+- **Calorie targets:** Health → tap the goal chip → enter weight, height and age. Targets are Mifflin-St Jeor × 1.55 plus a +300 kcal (lean bulk) or +500 kcal (bulk) surplus.
+- **Sleep (Android app only):** build the APK (below), open Health → Sleep → *Open settings*, then allow **Usage access** for Kairo. Each morning Kairo reads screen on/off history from 9:30 PM to noon and detects your sleep, wake-ups and score. Nothing leaves the phone.
+
 ## Data
 
 - Offline-first: everything is stored on the device in IndexedDB. No account and no server.

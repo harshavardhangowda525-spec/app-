@@ -1,5 +1,5 @@
 import { AnimatePresence, MotionConfig, motion } from 'framer-motion'
-import { BarChart3, Briefcase, CalendarCheck2, FolderClosed, LayoutGrid, Timer } from 'lucide-react'
+import { BarChart3, Briefcase, CalendarCheck2, HeartPulse, LayoutGrid, Timer } from 'lucide-react'
 import { lazy, Suspense, useEffect, useMemo } from 'react'
 import { CompletionOverlay } from './components/Tasks'
 import { spring } from './components/ui'
@@ -14,6 +14,7 @@ import Today from './screens/Today'
 const Focus = lazy(() => import('./screens/Focus'))
 const Business = lazy(() => import('./screens/Business'))
 const Projects = lazy(() => import('./screens/Projects'))
+const Health = lazy(() => import('./screens/Health'))
 const Insights = lazy(() => import('./screens/Insights'))
 const More = lazy(() => import('./screens/More'))
 const Timetable = lazy(() => import('./pages/Timetable'))
@@ -30,17 +31,17 @@ const Research = lazy(() => import('./pages/Content').then(m => ({ default: m.Re
 const TABS: { t: Tab; l: string; I: typeof Timer }[] = [
   { t: 'today', l: 'Today', I: CalendarCheck2 },
   { t: 'focus', l: 'Focus', I: Timer },
+  { t: 'health', l: 'Health', I: HeartPulse },
   { t: 'business', l: 'Business', I: Briefcase },
-  { t: 'projects', l: 'Projects', I: FolderClosed },
   { t: 'insights', l: 'Insights', I: BarChart3 },
   { t: 'more', l: 'More', I: LayoutGrid },
 ]
 
 const PAGES: Record<Page, React.ComponentType> = {
-  timetable: Timetable, study: Study, reading: Reading, trading: Trading, habits: Habits, settings: Settings,
+  projects: Projects, timetable: Timetable, study: Study, reading: Reading, trading: Trading, habits: Habits, settings: Settings,
   manifest: Manifest, journal: Journal, content: ContentStudio, research: Research,
 }
-const SCREENS: Record<Tab, React.ComponentType> = { today: Today, focus: Focus, business: Business, projects: Projects, insights: Insights, more: More }
+const SCREENS: Record<Tab, React.ComponentType> = { today: Today, focus: Focus, health: Health, business: Business, projects: Projects, insights: Insights, more: More }
 
 export default function App() {
   const hydrated = useStore(s => s.hydrated)

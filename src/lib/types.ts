@@ -233,3 +233,41 @@ export interface UserSettings {
   weekendDays: number[]
   overdueGraceMin: number
 }
+
+// ---------- Health ----------
+export type BulkGoal = 'lean-bulk' | 'bulk' | 'maintain'
+export interface HealthProfile {
+  weightKg?: number
+  heightCm?: number
+  age?: number
+  sex?: 'male' | 'female'
+  goal: BulkGoal
+  sleepGoalMin: number
+}
+export interface FoodItem { name: string; grams?: number; kcal: number; protein: number; carbs: number; fat: number }
+export interface MealEntry {
+  id: ID
+  date: string
+  at: number
+  title: string
+  photo?: string // compressed data URL, stays on device
+  items: FoodItem[]
+  kcal: number; protein: number; carbs: number; fat: number
+  source: 'ai' | 'manual'
+  appetiteBefore?: number // 1–5
+  appetiteAfter?: number
+  notes?: string
+}
+export interface AppetiteLog { id: ID; at: number; date: string; level: number } // 1 none … 5 starving
+export interface SleepRecord {
+  id: ID
+  date: string // morning (wake) date
+  sleepStart: number
+  wake: number
+  asleepMin: number
+  wakeUps: number
+  score: number
+  rested?: number // 1–5 check-in
+  source: 'auto' | 'manual'
+  timeline?: { start: number; end: number; type: 'idle' | 'used' }[]
+}

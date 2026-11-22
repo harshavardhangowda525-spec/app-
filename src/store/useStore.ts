@@ -2,7 +2,7 @@ import { create } from 'zustand'
 import { persist, createJSONStorage, type StateStorage } from 'zustand/middleware'
 import { get as idbGet, set as idbSet, del as idbDel } from 'idb-keyval'
 import type {
-  ActiveFocus, ActivityCompletion, ActivityInstance, Book, BusinessLead, ClientProject, ContentItem,
+  ActiveFocus, ActivityCompletion, AppetiteLog, HealthProfile, MealEntry, SleepRecord, ActivityInstance, Book, BusinessLead, ClientProject, ContentItem,
   DailyJournalEntry, DayOverride, ExtraActivity, FocusSession, ManifestationEntry, PracticeAnswer,
   ReadingSession, Reminder, ResearchItem, SalesDay, ScheduleBlock, ScheduleTemplate, StudySession,
   StudySubject, TradeJournalEntry, UserSettings,
@@ -41,6 +41,10 @@ export interface Data {
   research: ResearchItem[]
   priorities: Record<string, string[]>
   trackedInstruments: string[]
+  healthProfile: HealthProfile
+  meals: MealEntry[]
+  appetite: AppetiteLog[]
+  sleeps: SleepRecord[]
 }
 
 type ListKey = {
@@ -56,6 +60,7 @@ interface Actions {
   save: <K extends ListKey>(k: K, item: Data[K][number]) => void
   remove: <K extends ListKey>(k: K, id: string) => void
   updateSettings: (p: Partial<UserSettings>) => void
+  updateHealth: (p: Partial<HealthProfile>) => void
   // schedule
   complete: (i: ActivityInstance) => void
   skip: (i: ActivityInstance) => void
@@ -121,6 +126,10 @@ export function initialData(): Data {
     research: [],
     priorities: {},
     trackedInstruments: ['NIFTYBEES'],
+    healthProfile: { goal: 'lean-bulk', sleepGoalMin: 450 },
+    meals: [],
+    appetite: [],
+    sleeps: [],
   }
 }
 
@@ -142,6 +151,7 @@ export const useStore = create<Store>()(
       }),
       remove: (k, id) => set(s => ({ [k]: (s[k] as { id: string }[]).filter(x => x.id !== id) } as Partial<Store>)),
       updateSettings: (p) => set(s => ({ settings: { ...s.settings, ...p } })),
+      updateHealth: (p) => set(s => ({ healthProfile: { ...s.healthProfile, ...p } })),
 
       complete: (i) => {
         const now = new Date()
@@ -292,7 +302,7 @@ export const useStore = create<Store>()(
     }),
     {
       name: 'kairo-v1',
-      version: 3,
+      version: 4,
       storage: createJSONStorage(() => idbStorage),
       partialize: (s) => {
         const out: Partial<Data> = {}

@@ -5,12 +5,14 @@ import { Bar, Empty, Field, Pill, ScreenHeader, Section, Sheet, confirmDelete } 
 import { dateKey, diffDays, prettyDate, uid } from '../lib/time'
 import type { ClientProject } from '../lib/types'
 import { useStore } from '../store/useStore'
+import { useNav } from '../store/nav'
 
 const STATUSES: ClientProject['status'][] = ['Planning', 'In progress', 'Review', 'Delivered', 'On hold']
 const inr = (n: number) => `₹${Math.round(n).toLocaleString('en-IN')}`
 
 export default function Projects() {
   const projects = useStore(s => s.projects)
+  const fromMore = useNav(s => s.page) === 'projects'
   const [edit, setEdit] = useState<ClientProject | null>(null)
   const today = dateKey()
   const activeP = projects.filter(p => p.status !== 'Delivered')
@@ -21,7 +23,7 @@ export default function Projects() {
 
   return (
     <div className="space-y-4">
-      <ScreenHeader kicker="Client development" title="Projects" right={<Pill variant="lavender" className="h-9" onClick={() => setEdit(blank())}><Plus size={16} /> Project</Pill>} />
+      <ScreenHeader back={fromMore} kicker="Client development" title="Projects" right={<Pill variant="lavender" className="h-9" onClick={() => setEdit(blank())}><Plus size={16} /> Project</Pill>} />
       <div className="grid grid-cols-3 gap-2 text-center">
         {[[activeP.length, 'Active'], [pendingMilestones.length, 'Deliverables'], [openRevisions, 'Revisions']].map(([v, l]) => (
           <div key={l} className="glass rounded-[18px] py-3"><div className="text-xl font-extrabold">{v}</div><div className="text-[11px] text-ink-3 font-semibold">{l}</div></div>

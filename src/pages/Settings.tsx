@@ -5,6 +5,7 @@ import { isNative, requestPermission } from '../lib/notify'
 import { dateKey } from '../lib/time'
 import { useStore } from '../store/useStore'
 import { InstallButton } from '../components/InstallBanner'
+import { AiKeyCard } from '../components/AiKeyCard'
 
 export default function Settings() {
   const settings = useStore(s => s.settings)
@@ -30,6 +31,9 @@ export default function Settings() {
       <ScreenHeader back kicker="Kairo" title="Settings" />
       <Section title="App">
         <Card className="space-y-2"><InstallButton /></Card>
+      </Section>
+      <Section title="Meal photo AI · Grok">
+        <AiKeyCard />
       </Section>
       <Section title="Profile">
         <Card className="space-y-3">

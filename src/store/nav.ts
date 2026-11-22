@@ -3,9 +3,9 @@ import type { Category } from '../lib/types'
 
 export interface FocusDraft { label: string; category: Category; minutes: number; instanceKey?: string }
 
-export type Tab = 'today' | 'focus' | 'business' | 'projects' | 'insights' | 'more'
+export type Tab = 'today' | 'focus' | 'health' | 'business' | 'projects' | 'insights' | 'more'
 export type Page =
-  | 'content' | 'trading' | 'research' | 'study' | 'reading' | 'manifest' | 'journal' | 'habits' | 'settings' | 'timetable'
+  | 'projects' | 'content' | 'trading' | 'research' | 'study' | 'reading' | 'manifest' | 'journal' | 'habits' | 'settings' | 'timetable'
 
 interface Nav {
   tab: Tab
