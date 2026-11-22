@@ -1,18 +1,25 @@
-import { createClient, type Session, type SupabaseClient } from '@supabase/supabase-js'
 import { create } from 'zustand'
 import { useStore, initialData, type Data } from '../store/useStore'
 
 /**
- * Kairo cloud sync (Supabase). One row per user in `kairo_sync` (RLS: a user can only touch their own row).
- * The whole Kairo store is synced as JSON except meal photos and trade screenshots (kept on each device)
- * and the AI key (never leaves the phone). Last-write-wins with an explicit choice on conflicts.
+ * Kairo cloud sync — Neon Postgres behind Kairo's own Vercel functions (/api/auth, /api/sync).
+ * One row per account. The whole Kairo store is synced as JSON except meal photos and trade screenshots
+ * (kept on each device) and the AI key (never leaves the phone). Last-write-wins with an explicit choice on conflicts.
  */
-const URL = import.meta.env.VITE_SUPABASE_URL as string | undefined
-const KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string | undefined
-export const cloudConfigured = !!(URL && KEY)
-export const supabase: SupabaseClient | null = cloudConfigured
-  ? createClient(URL!, KEY!, { auth: { persistSession: true, autoRefreshToken: true, storageKey: 'kairo-auth', detectSessionInUrl: false } })
-  : null
+export const cloudConfigured = true
+const AUTH_KEY = 'kairo-auth'
+interface Session { token: string; email: string }
+const readSession = (): Session | null => { try { return JSON.parse(localStorage.getItem(AUTH_KEY) || 'null') } catch { return null } }
+const writeSession = (s: Session | null) => { try { s ? localStorage.setItem(AUTH_KEY, JSON.stringify(s)) : localStorage.removeItem(AUTH_KEY) } catch { /* ignore */ } }
+
+async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
+  const token = useCloud.getState().session?.token
+  const r = await fetch(path, { ...init, headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}), ...(init.headers ?? {}) } })
+  const body = await r.json().catch(() => ({}))
+  if (r.status === 401 && token) { writeSession(null); useCloud.setState({ session: null, status: 'idle' }) }
+  if (!r.ok) throw new Error(body?.error || `Request failed (${r.status})`)
+  return body as T
+}
 
 const DEVICE_KEY = 'kairo-device-id'
 const META_KEY = 'kairo-sync-meta'
@@ -35,7 +42,7 @@ interface CloudState {
   error?: string
   conflict?: { remoteAt: string; remoteDevice: string; remote: Partial<Data> }
 }
-export const useCloud = create<CloudState>(() => ({ session: null, status: cloudConfigured ? 'idle' : 'off' }))
+export const useCloud = create<CloudState>(() => ({ session: readSession(), status: 'idle' }))
 
 /* ---------- snapshot helpers ---------- */
 
@@ -72,27 +79,23 @@ function applyRemote(remote: Partial<Data>) {
 /* ---------- push / pull ---------- */
 
 async function pull() {
-  const uid = useCloud.getState().session?.user.id
-  if (!supabase || !uid) return null
-  const { data, error } = await supabase.from('kairo_sync').select('data, updated_at, device').eq('user_id', uid).maybeSingle()
-  if (error) throw error
-  return data as { data: Partial<Data>; updated_at: string; device: string } | null
+  if (!useCloud.getState().session) return null
+  return api<{ data: Partial<Data>; updated_at: string; device: string } | null>('/api/sync')
 }
 
 export async function push() {
-  const uid = useCloud.getState().session?.user.id
-  if (!supabase || !uid) return
+  if (!useCloud.getState().session) return
   useCloud.setState({ status: 'syncing', error: undefined })
-  const updated_at = new Date().toISOString()
-  const { error } = await supabase.from('kairo_sync').upsert({ user_id: uid, data: snapshot(), device: deviceId, updated_at })
-  if (error) { useCloud.setState({ status: 'error', error: error.message }); return }
-  writeMeta({ remoteAt: updated_at, dirty: false })
-  useCloud.setState({ status: 'synced', lastSync: updated_at })
+  try {
+    const { updated_at } = await api<{ updated_at: string }>('/api/sync', { method: 'PUT', body: JSON.stringify({ data: snapshot(), device: deviceId }) })
+    writeMeta({ remoteAt: updated_at, dirty: false })
+    useCloud.setState({ status: 'synced', lastSync: updated_at })
+  } catch (e) { useCloud.setState({ status: 'error', error: (e as Error).message }) }
 }
 
 /** Reconcile this device with the cloud (on sign-in, on app open, when returning to the app). */
 export async function reconcile(firstSignIn = false) {
-  if (!supabase || !useCloud.getState().session) return
+  if (!useCloud.getState().session) return
   try {
     useCloud.setState({ status: 'syncing', error: undefined })
     const remote = await pull()
@@ -130,28 +133,19 @@ export async function resolveConflict(keep: 'cloud' | 'device') {
 
 /* ---------- auth ---------- */
 
-export async function signIn(email: string, password: string) {
-  if (!supabase) throw new Error('Cloud sync is not connected yet.')
-  const { data, error } = await supabase.auth.signInWithPassword({ email, password })
-  if (error) throw error
-  useCloud.setState({ session: data.session })
+async function auth(action: 'signin' | 'signup', email: string, password: string) {
+  const r = await api<Session>('/api/auth', { method: 'POST', body: JSON.stringify({ action, email, password }) })
+  writeSession(r)
+  writeMeta({})
+  useCloud.setState({ session: r })
   await reconcile(true)
 }
-
-export async function signUp(email: string, password: string) {
-  if (!supabase) throw new Error('Cloud sync is not connected yet.')
-  const { data, error } = await supabase.auth.signUp({ email, password })
-  if (error) throw error
-  if (!data.session) return 'confirm-email' as const
-  useCloud.setState({ session: data.session })
-  await reconcile(true)
-  return 'signed-in' as const
-}
+export const signIn = (email: string, password: string) => auth('signin', email, password)
+export async function signUp(email: string, password: string) { await auth('signup', email, password); return 'signed-in' as const }
 
 export async function signOut() {
-  if (!supabase) return
   if (readMeta().dirty) await push().catch(() => {})
-  await supabase.auth.signOut()
+  writeSession(null)
   writeMeta({})
   useCloud.setState({ session: null, status: 'idle', lastSync: undefined, conflict: undefined })
 }
@@ -159,13 +153,9 @@ export async function signOut() {
 /** Start once at app boot (after the store has hydrated). */
 let started = false
 export function startCloudSync() {
-  if (!supabase || started) return
+  if (started) return
   started = true
-  supabase.auth.getSession().then(({ data }) => {
-    useCloud.setState({ session: data.session })
-    if (data.session) reconcile()
-  })
-  supabase.auth.onAuthStateChange((_e, session) => useCloud.setState({ session }))
+  if (useCloud.getState().session) reconcile()
   // local changes → mark dirty → debounced push
   let t: number | undefined
   useStore.subscribe((s, prev) => {

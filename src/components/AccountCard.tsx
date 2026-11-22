@@ -28,7 +28,7 @@ export function AccountCard() {
       <div className="flex items-center gap-3">
         <div className="size-10 rounded-full grid place-items-center bg-success/15"><Cloud size={18} className="text-success" /></div>
         <div className="flex-1 min-w-0">
-          <div className="text-sm font-bold truncate">{session.user.email}</div>
+          <div className="text-sm font-bold truncate">{session.email}</div>
           <div className={`text-[11px] font-semibold ${status === 'error' ? 'text-danger' : status === 'conflict' ? 'text-warning' : 'text-ink-2'}`}>
             {status === 'syncing' ? 'Syncing…' : status === 'error' ? `Sync error: ${error}` : status === 'conflict' ? 'Choose which data to keep' : `Synced ${ago(lastSync)}`}
           </div>
@@ -57,7 +57,7 @@ export function AccountCard() {
     setBusy(true); setMsg(null)
     try {
       if (mode === 'in') await signIn(email.trim(), pw)
-      else if ((await signUp(email.trim(), pw)) === 'confirm-email') setMsg('Check your email and tap the confirmation link, then sign in here.')
+      else await signUp(email.trim(), pw)
     } catch (e) {
       const m = (e as Error).message
       setMsg(/invalid login/i.test(m) ? 'Wrong email or password.' : /already registered/i.test(m) ? 'That email already has an account — sign in instead.' : m)
