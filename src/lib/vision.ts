@@ -1,4 +1,8 @@
+import { Capacitor } from '@capacitor/core'
 import type { FoodItem } from './types'
+
+/** In the Android app there is no Vercel server next to the page, so call the live relay. */
+const RELAY = Capacitor.isNativePlatform() ? 'https://kairo-chi-gilt.vercel.app/api/analyze-meal' : '/api/analyze-meal'
 
 const KEY = 'kairo-xai-key'
 const MODEL = 'kairo-xai-model'
@@ -30,7 +34,7 @@ export async function compressImage(file: File, max = 1024, q = 0.72): Promise<s
 export async function analyzeMeal(image: string): Promise<MealAnalysis> {
   const key = getXaiKey()
   if (!key) throw new Error('Add your Groq (or xAI Grok) API key in Settings to analyse photos.')
-  const r = await fetch('/api/analyze-meal', {
+  const r = await fetch(RELAY, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'x-ai-key': key },
     body: JSON.stringify({ image, model: getXaiModel() || undefined }),

@@ -10,7 +10,9 @@ initInstall()
 if (navigator.storage?.persist) navigator.storage.persist().catch(() => {})
 // autoUpdate: a new version installs and the app reloads itself. Check on open, on return to the app, and every 30 min,
 // so an installed (full-screen) Kairo picks up new releases without reinstalling.
-registerSW({
+import { Capacitor } from '@capacitor/core'
+
+if (!Capacitor.isNativePlatform()) registerSW({
   immediate: true,
   onRegisteredSW(_url, reg) {
     if (!reg) return

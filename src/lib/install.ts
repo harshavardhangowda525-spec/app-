@@ -5,7 +5,10 @@ interface BeforeInstallPromptEvent extends Event {
   userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>
 }
 
+import { Capacitor } from '@capacitor/core'
+
 export const isInstalled = () =>
+  Capacitor.isNativePlatform() ||
   matchMedia('(display-mode: fullscreen)').matches || matchMedia('(display-mode: standalone)').matches ||
   (navigator as Navigator & { standalone?: boolean }).standalone === true
 

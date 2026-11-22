@@ -18,7 +18,19 @@ function parseJson(text) {
   return JSON.parse(m[0])
 }
 
+// The Android app (Capacitor) runs on https://localhost; allow it (and only it) cross-origin.
+const APP_ORIGINS = ['https://localhost', 'capacitor://localhost', 'http://localhost']
+
 export default async function handler(req, res) {
+  const origin = req.headers.origin
+  if (origin && APP_ORIGINS.includes(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin)
+    res.setHeader('Vary', 'Origin')
+    res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS')
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, x-ai-key, x-xai-key')
+    res.setHeader('Access-Control-Max-Age', '86400')
+  }
+  if (req.method === 'OPTIONS') return res.status(204).end()
   if (req.method !== 'POST') return res.status(405).json({ error: 'POST only' })
   const key = req.headers['x-ai-key'] || req.headers['x-xai-key']
   if (!key || typeof key !== 'string' || key.length < 20) return res.status(400).json({ error: 'Missing AI key — add your Groq or xAI key in Kairo Settings.' })
