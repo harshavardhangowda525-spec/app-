@@ -1,9 +1,11 @@
 import { ImagePlus, Plus, Trash2, X } from 'lucide-react'
-import { useState } from 'react'
+import { Fragment, useState } from 'react'
 import { Card, Empty, Field, Pill, ScreenHeader, Segmented, Sheet, Stat, confirmDelete } from '../components/ui'
 import { dateKey, prettyDate, uid } from '../lib/time'
 import type { TradeJournalEntry } from '../lib/types'
 import { useStore } from '../store/useStore'
+import { realReadiness, setupStats } from '../lib/insightsPlus'
+import { CheckCircle2, Circle } from 'lucide-react'
 
 export function riskReward(t: Pick<TradeJournalEntry, 'entry' | 'stopLoss' | 'target'>) {
   if (t.entry == null || t.stopLoss == null || t.target == null) return null
@@ -45,6 +47,7 @@ export default function Trading() {
         <Stat label="Win rate" value={closed.length ? `${Math.round((wins / closed.length) * 100)}%` : '—'} accent="#9BE7C4" />
         <Stat label="Avg R:R" value={rrs.length ? `1:${(rrs.reduce((a, b) => a + b, 0) / rrs.length).toFixed(1)}` : '—'} accent="#FFB59A" />
       </div>
+      <SetupStats kind={kind} />
       <p className="text-xs text-ink-3">A journal only — Kairo never places trades. {kind === 'real' ? 'Real trades are kept separate from paper practice.' : ''}</p>
       {list.length === 0 ? <Empty title={`No ${kind} trades yet`} hint="Log setup, entry, stop, target and what you learned." /> : list.map(t => {
         const rr = riskReward(t)
@@ -118,5 +121,43 @@ function TradeSheet({ t, onClose }: { t: TradeJournalEntry | null; onClose: () =
         </div>
       </div>
     </Sheet>
+  )
+}
+
+/** Per-setup edge (win rate, expectancy in R) + "ready for real money?" checklist from paper trades. */
+function SetupStats({ kind }: { kind: 'paper' | 'real' }) {
+  const trades = useStore(s => s.trades)
+  const list = trades.filter(t => t.kind === kind)
+  const stats = setupStats(list)
+  const ready = kind === 'paper' ? realReadiness(list) : null
+  if (!list.length) return null
+  return (
+    <div className="space-y-2">
+      <div className="glass rounded-[20px] p-3">
+        <div className="grid grid-cols-[1fr_auto_auto_auto] gap-x-3 gap-y-1.5 text-[11px] items-center">
+          <span className="text-ink-3 font-bold">SETUP</span><span className="text-ink-3 font-bold text-right">TRADES</span><span className="text-ink-3 font-bold text-right">WIN</span><span className="text-ink-3 font-bold text-right">EXPECT.</span>
+          {stats.map(s => (
+            <Fragment key={s.setup}>
+              <span className="font-semibold truncate">{s.setup}</span>
+              <span className="text-right">{s.n}</span>
+              <span className="text-right">{s.closed ? `${s.winRate}%` : '—'}</span>
+              <span className={`text-right font-bold ${s.expectancy === null ? 'text-ink-3' : s.expectancy > 0 ? 'text-success' : 'text-danger'}`}>{s.expectancy === null ? '—' : `${s.expectancy > 0 ? '+' : ''}${s.expectancy}R`}</span>
+            </Fragment>
+          ))}
+        </div>
+        <div className="text-[10px] text-ink-3 mt-2">Expectancy = average R per closed trade (uses exit price; else +target R for wins, −1R for losses).</div>
+      </div>
+      {ready && (
+        <div className={`rounded-[20px] p-3 border ${ready.ready ? 'border-success/40 bg-success/[.06]' : 'border-white/10 bg-white/[.03]'}`}>
+          <div className={`text-xs font-bold mb-1.5 ${ready.ready ? 'text-success' : 'text-ink-2'}`}>{ready.ready ? 'Paper results say you’re ready to go small with real money' : 'Ready for real money? Not yet'}</div>
+          {ready.checks.map(c => (
+            <div key={c.label} className="flex items-center gap-2 text-[11px] py-0.5">
+              {c.ok ? <CheckCircle2 size={13} className="text-success" /> : <Circle size={13} className="text-ink-3" />}
+              <span className={`flex-1 ${c.ok ? '' : 'text-ink-2'}`}>{c.label}</span><span className="text-ink-3">{c.value}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
   )
 }

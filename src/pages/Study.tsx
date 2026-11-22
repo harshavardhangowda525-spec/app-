@@ -5,6 +5,8 @@ import { focusMinutes, lastNDays } from '../lib/analytics'
 import { dateKey, fmtDur, prettyDate, uid, weekdayShort, weekOf } from '../lib/time'
 import type { PracticeAnswer, StudySubject } from '../lib/types'
 import { useNav } from '../store/nav'
+import { revisionsDue, syllabusCoverage, REVISION_OFFSETS } from '../lib/insightsPlus'
+import { diffDays } from '../lib/time'
 import { useStore } from '../store/useStore'
 
 export default function Study() {
@@ -29,6 +31,7 @@ export default function Study() {
         <Stat label="Today" value={fmtDur(minutesOn(today))} accent="#FFB59A" />
         <Stat label="Avg score" value={avg} sub="out of 10" accent="#C9B8FF" />
       </div>
+      <ExamAndRevisions />
       <div className="flex gap-2">
         <Pill variant="white" className="flex-1 h-11" onClick={() => openFocus({ label: 'NIOS study session', category: 'Education', minutes: 60, instanceKey: `${today}:study` })}><Timer size={16} /> 60-min timer</Pill>
         <Pill className="flex-1 h-11" onClick={() => setLogOpen(true)}><Plus size={16} /> Log session</Pill>
@@ -107,10 +110,10 @@ function SubjectSheet({ subject, onClose }: { subject: StudySubject | null; onCl
       <div className="space-y-2">
         {live.chapters.map(c => (
           <div key={c.id} className="glass rounded-xl px-3 py-2.5 flex items-center gap-2.5">
-            <button onClick={() => upd(live.chapters.map(x => (x.id === c.id ? { ...x, done: !x.done } : x)))}
+            <button onClick={() => upd(live.chapters.map(x => (x.id === c.id ? { ...x, done: !x.done, doneAt: !x.done ? Date.now() : undefined, revisedAt: !x.done ? [] : x.revisedAt } : x)))}
               className={`size-5 rounded-md grid place-items-center border ${c.done ? 'bg-lavender border-lavender' : 'border-white/25'}`}>{c.done && <Check size={12} strokeWidth={3} color="#1B1430" />}</button>
             <span className={`flex-1 text-sm ${c.done ? 'text-ink-2' : ''}`}>{c.name}</span>
-            <button onClick={() => upd(live.chapters.map(x => (x.id === c.id ? { ...x, revisions: x.revisions + 1 } : x)))} className="flex items-center gap-1 text-xs font-bold text-peach glass rounded-full px-2 h-7">
+            <button onClick={() => upd(live.chapters.map(x => (x.id === c.id ? { ...x, revisions: x.revisions + 1, revisedAt: [...(x.revisedAt ?? []), Date.now()] } : x)))} className="flex items-center gap-1 text-xs font-bold text-peach glass rounded-full px-2 h-7">
               <RotateCw size={12} /> {c.revisions}
             </button>
             <button onClick={() => confirmDelete(c.name) && upd(live.chapters.filter(x => x.id !== c.id))} aria-label="Delete"><Trash2 size={14} className="text-ink-3" /></button>
@@ -184,5 +187,48 @@ function PracticeSheet({ p, onClose }: { p: PracticeAnswer | null; onClose: () =
         </div>
       </div>
     </Sheet>
+  )
+}
+
+/** NIOS exam countdown, syllabus coverage and spaced-revision queue (1 → 3 → 7 → 21 days). */
+function ExamAndRevisions() {
+  const subjects = useStore(s => s.subjects)
+  const exam = useStore(s => s.targets2.niosExamDate)
+  const update = useStore(s => s.updateTargets2)
+  const save = useStore(s => s.save)
+  const today = dateKey()
+  const cov = syllabusCoverage(subjects)
+  const due = revisionsDue(subjects, today)
+  const daysLeft = exam ? diffDays(exam, today) : null
+  const revise = (subjectId: string, chapterId: string) => {
+    const s = subjects.find(x => x.id === subjectId); if (!s) return
+    save('subjects', { ...s, chapters: s.chapters.map(c => (c.id === chapterId ? { ...c, revisions: c.revisions + 1, revisedAt: [...(c.revisedAt ?? []), Date.now()] } : c)) })
+  }
+  return (
+    <div className="space-y-2">
+      <div className="rounded-[22px] p-4 flex items-center gap-4" style={{ background: 'linear-gradient(140deg,#3a2733,#1a1224)', border: '1px solid rgb(255 181 154 / .25)' }}>
+        <div className="text-center shrink-0 w-20">
+          <div className="text-3xl font-extrabold text-peach">{daysLeft === null ? '—' : Math.max(0, daysLeft)}</div>
+          <div className="text-[10px] font-bold text-ink-3">DAYS TO EXAM</div>
+        </div>
+        <div className="flex-1 min-w-0 space-y-1.5">
+          <div className="flex justify-between text-xs"><span className="text-ink-2">Syllabus covered</span><b>{cov.done}/{cov.total} chapters · {cov.pct}%</b></div>
+          <Bar pct={cov.pct} />
+          {daysLeft !== null && cov.total > cov.done && daysLeft > 0 && <div className="text-[11px] text-ink-2">Need ~{Math.ceil((cov.total - cov.done) / Math.max(1, Math.floor(daysLeft / 7)))} chapters/week to finish in time.</div>}
+          <label className="text-[10px] text-ink-3 font-semibold flex items-center gap-2">Exam date<input type="date" className="field !py-1 !px-2 !text-[11px] !w-auto" value={exam ?? ''} onChange={e => update({ niosExamDate: e.target.value || undefined })} /></label>
+        </div>
+      </div>
+      {due.length > 0 && (
+        <div className="glass rounded-[20px] p-3 space-y-2">
+          <div className="text-xs font-bold text-warning">Revision due · {due.length}</div>
+          {due.slice(0, 5).map(r => (
+            <div key={r.chapterId} className="flex items-center gap-2 text-sm">
+              <div className="flex-1 min-w-0"><div className="truncate font-semibold">{r.chapter}</div><div className="text-[10px] text-ink-3">{r.subject} · round {r.round}/{REVISION_OFFSETS.length}{r.overdueDays > 0 ? ` · ${r.overdueDays}d overdue` : ''}</div></div>
+              <Pill className="h-8 text-[11px]" onClick={() => revise(r.subjectId, r.chapterId)}>Revised</Pill>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
   )
 }

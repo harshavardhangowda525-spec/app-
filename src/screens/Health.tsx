@@ -9,6 +9,7 @@ import { addDays, dateKey, fmtDur, parseKey, prettyDate, uid, weekdayShort } fro
 import { lastNDays as lastNDaysSafe } from '../lib/analytics'
 import type { FoodItem, MealEntry, SleepRecord } from '../lib/types'
 import { GoodNightCard, MorningCheckIn } from '../components/SleepWeb'
+import { WaterCard, WeightCard, WorkoutsLink } from '../components/HealthPlus'
 import { analyzeMeal, compressImage, getXaiKey, providerName } from '../lib/vision'
 import { useStore } from '../store/useStore'
 
@@ -101,6 +102,10 @@ export default function Health() {
           </button>
         )}
       </motion.div>
+
+      <WeightCard />
+      <WorkoutsLink />
+      <WaterCard />
 
       {/* Appetite */}
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }} className="glass rounded-[22px] px-4 py-3.5">

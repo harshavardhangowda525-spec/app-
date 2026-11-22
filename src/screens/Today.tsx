@@ -13,6 +13,7 @@ import { useStore } from '../store/useStore'
 import { dailySummary } from '../lib/analytics'
 import { InstallBanner } from '../components/InstallBanner'
 import { GoodNightCard, MorningCheckIn } from '../components/SleepWeb'
+import { FollowUpsToday, OutreachTarget } from '../components/BusinessPlus'
 
 export default function Today() {
   const now = useNow(15000)
@@ -20,6 +21,8 @@ export default function Today() {
   const [date, setDate] = useState(today)
   const { items, stats } = useDay(date, now)
   const complete = useStore(s => s.complete)
+  const blockStarts = useStore(s => s.blockStarts)
+  const markStart = useStore(s => s.markStart)
   const skip = useStore(s => s.skip)
   const name = useStore(s => s.settings.name)
   const { openFocus, open } = useNav()
@@ -100,12 +103,14 @@ export default function Today() {
       {isToday && <InstallBanner />}
 
       <Priorities date={date} editing={editPr} setEditing={setEditPr} />
+      {isToday && <OutreachTarget />}
+      {isToday && <FollowUpsToday />}
 
       <LayoutGroup>
         {/* Now */}
         {focus && (
           <Section title={focus.status === 'active' ? 'Now' : 'Up next'} right={<button onClick={() => open('timetable')} className="text-xs font-semibold text-lavender">Full timetable</button>}>
-              <ActiveCard key={focus.key} item={focus} now={now}
+              <ActiveCard key={focus.key} item={focus} now={now} startedAt={blockStarts[focus.key]} onStart={() => markStart(focus.key)}
                 onDone={() => doComplete(focus)} onSkip={() => skip(focus)} onMore={() => setSheetItem(focus)}
                 onFocus={focus.end ? () => startFocus(focus) : undefined} />
           </Section>

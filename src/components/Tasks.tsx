@@ -46,8 +46,9 @@ function StatusDot({ status }: { status: ActivityInstance['status'] }) {
   return <span className="size-[22px] rounded-full border-[1.5px] border-white/12" />
 }
 
-export function ActiveCard({ item, now, onDone, onSkip, onFocus, onMore }: {
+export function ActiveCard({ item, now, onDone, onSkip, onFocus, onMore, onStart, startedAt }: {
   item: ActivityInstance; now: Date; onDone: () => void; onSkip: () => void; onFocus?: () => void; onMore: () => void
+  onStart?: () => void; startedAt?: number
 }) {
   const nowM = now.getHours() * 60 + now.getMinutes()
   const isActive = item.status === 'active'
@@ -93,6 +94,8 @@ export function ActiveCard({ item, now, onDone, onSkip, onFocus, onMore }: {
             <div className="text-[17px] font-extrabold whitespace-nowrap">
               {isActive ? (item.end ? `${fmtDur(left)} left` : 'Now') : startsIn > 0 ? `In ${fmtDur(startsIn)}` : 'Ready'}
             </div>
+            {startedAt ? <div className="text-[10px] font-bold text-on-peach/60">Started {new Date(startedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</div>
+              : onStart && isActive && item.end && <button onClick={onStart} className="mt-1 h-6 px-2.5 rounded-full text-[10px] font-bold bg-white/22 border border-white/35">▶ Start</button>}
           </div>
           <div className="flex items-center gap-2 shrink-0">
             {onFocus && (
@@ -112,10 +115,11 @@ export function ActiveCard({ item, now, onDone, onSkip, onFocus, onMore }: {
   )
 }
 
-export function CompletionOverlay({ title, detail, done, eligible, pct, next, onContinue, onClose, reduced }: {
+export function CompletionOverlay({ title, detail, done, eligible, pct, next, onContinue, onClose, reduced, onEnergy }: {
   title: string; detail?: string; done: number; eligible: number; pct: number; next?: ActivityInstance
-  onContinue: () => void; onClose: () => void; reduced: boolean
+  onContinue: () => void; onClose: () => void; reduced: boolean; onEnergy?: (lvl: 1 | 2 | 3) => void
 }) {
+  const [energy, setEnergy] = useState<1 | 2 | 3 | null>(null)
   return (
     <AnimatePresence>
       <motion.div key="overlay" className="fixed inset-0 z-[60] grid place-items-center px-6"
@@ -168,6 +172,15 @@ export function CompletionOverlay({ title, detail, done, eligible, pct, next, on
             </div>
             {next && <div className="text-xs"><span className="text-ink-3">Next: </span><span className="font-semibold text-ink-2">{next.title}</span></div>}
           </motion.div>
+          {onEnergy && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.9 }} className="mt-3">
+              <div className="text-[11px] text-ink-3 mb-1.5">Energy right now?</div>
+              <div className="flex gap-1.5">{([[1, '🪫 Low'], [2, '🙂 OK'], [3, '⚡ High']] as const).map(([lv, l]) => (
+                <button key={lv} onClick={() => { if (!energy) { setEnergy(lv); onEnergy(lv) } }}
+                  className={`flex-1 h-8 rounded-full text-[11px] font-bold border ${energy === lv ? 'bg-lavender text-purple-deep border-lavender' : 'border-white/15 text-ink-2'} ${energy && energy !== lv ? 'opacity-40' : ''}`}>{l}</button>
+              ))}</div>
+            </motion.div>
+          )}
           <motion.button whileTap={{ scale: 0.96 }} onClick={onContinue}
             className="mt-4 w-full h-12 rounded-full bg-lavender text-purple-deep text-sm font-bold">
             {next ? 'Continue to next task' : 'Wrap up the day'}

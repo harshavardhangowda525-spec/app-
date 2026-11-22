@@ -5,6 +5,7 @@ import { dailySummary, doneOn, focusMinutes, hasRecords, lastNDays, sales, stats
 import { addDays, dateKey, fmtDur, parseKey, prettyDate, weekdayShort, weekOf } from '../lib/time'
 import { useStore } from '../store/useStore'
 import Heatmap from '../components/Heatmap'
+import { Correlations, EnergyPeaks, PlanReality, WeeklyReport } from '../components/InsightsPlus'
 
 export default function Insights() {
   const data = useStore()
@@ -48,6 +49,10 @@ export default function Insights() {
     <div className="space-y-4">
       <ScreenHeader kicker="Built from your records only" title="Insights" />
       <Heatmap />
+      <WeeklyReport />
+      <Correlations />
+      <PlanReality />
+      <EnergyPeaks />
       <Segmented value={range} onChange={setRange} options={[{ v: 'week', l: 'This week' }, { v: 'last', l: 'Last week' }]} />
 
       <Card className="space-y-3">
@@ -102,19 +107,6 @@ export default function Insights() {
         ) : <Card className="text-sm text-ink-3">No activity recorded yesterday.</Card>}
       </Section>
 
-      <Section title="Weekly review">
-        <Card className="text-sm space-y-2 leading-relaxed">
-          {m.elig === 0 ? <div className="text-ink-3">Complete a few tasks and your weekly review appears here.</div> : (
-            <>
-              <div>You completed <b>{m.weekPct}%</b> of tracked scheduled work ({m.done}/{m.elig}).</div>
-              <div>Deep focus: <b>{fmtDur(m.focus)}</b>, of which development <b>{fmtDur(m.dev)}</b>.</div>
-              <div>Studied on <b>{m.studyDays}</b> day(s), trained on <b>{m.gymDays}</b>.</div>
-              <div>Outreach: <b>{m.biz.calls + m.biz.dms}</b> touches → <b>{m.biz.interested}</b> interested → <b>{m.biz.won}</b> won.</div>
-              {m.missed > 0 && <div className="text-warning">{m.missed} activities were missed or skipped — consider moving recurring misses to a better time.</div>}
-            </>
-          )}
-        </Card>
-      </Section>
     </div>
   )
 }

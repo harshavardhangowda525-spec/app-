@@ -5,7 +5,7 @@ export interface FocusDraft { label: string; category: Category; minutes: number
 
 export type Tab = 'today' | 'focus' | 'health' | 'business' | 'projects' | 'insights' | 'more'
 export type Page =
-  | 'projects' | 'content' | 'trading' | 'research' | 'study' | 'reading' | 'manifest' | 'journal' | 'habits' | 'settings' | 'timetable'
+  | 'projects' | 'workouts' | 'money' | 'goals' | 'content' | 'trading' | 'research' | 'study' | 'reading' | 'manifest' | 'journal' | 'habits' | 'settings' | 'timetable'
 
 interface Nav {
   tab: Tab

@@ -59,7 +59,7 @@ export default function Focus() {
   const reduced = useReducedMotion()
   const active = useStore(s => s.activeFocus)
   const sessions = useStore(s => s.focusSessions)
-  const { startFocus, pauseFocus, resumeFocus, finishFocus, complete } = useStore()
+  const { startFocus, pauseFocus, resumeFocus, finishFocus, complete, addDistraction } = useStore()
   const { focusDraft, setTab } = useNav()
   const now = useNow(active && !active.pausedAt ? 1000 : 30000)
   const today = dateKey(now)
@@ -313,7 +313,7 @@ export default function Focus() {
         <div className="text-center text-[11px] font-medium text-ink-3 h-4">
           {phase === 'ready' ? (draft.instanceKey ? 'Suggested for your scheduled block · never forced' : 'Pick a task above, or just focus')
             : phase === 'complete' ? `Logged to ${done?.category === 'Education' ? 'Study Tracker' : 'Focus history'}`
-              : 'Hold ✓ to finish early'}
+              : <button onClick={() => { addDistraction(); navigator.vibrate?.(15) }} className="text-[11px] font-bold text-ink-2 underline decoration-dotted">Got distracted? Tap · {active?.distractions ?? 0} so far · hold ✓ to finish</button>}
         </div>
 
       </div>

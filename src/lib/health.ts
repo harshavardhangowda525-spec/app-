@@ -6,7 +6,7 @@ export function targets(p: HealthProfile) {
   const bmr = 10 * p.weightKg + 6.25 * p.heightCm - 5 * p.age + (p.sex === 'female' ? -161 : 5)
   const tdee = bmr * 1.55 // trains 6×/week
   const surplus: Record<BulkGoal, number> = { 'lean-bulk': 300, bulk: 500, maintain: 0 }
-  const kcal = Math.round((tdee + surplus[p.goal]) / 10) * 10
+  const kcal = Math.round((tdee + surplus[p.goal] + (p.kcalAdjust ?? 0)) / 10) * 10
   const protein = Math.round(p.weightKg * (p.goal === 'maintain' ? 1.6 : 1.9))
   const fat = Math.round((kcal * 0.25) / 9)
   const carbs = Math.max(0, Math.round((kcal - protein * 4 - fat * 9) / 4))

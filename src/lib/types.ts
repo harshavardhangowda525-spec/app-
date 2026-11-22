@@ -84,6 +84,7 @@ export interface FocusSession {
   label: string
   category: Category
   completed: boolean // reached planned duration
+  distractions?: number
 }
 
 export interface ActiveFocus {
@@ -94,6 +95,7 @@ export interface ActiveFocus {
   instanceKey?: string
   label: string
   category: Category
+  distractions?: number
 }
 
 export type RecurrenceRule =
@@ -168,7 +170,7 @@ export interface ClientProject {
   createdAt: number
 }
 
-export interface StudyChapter { id: ID; name: string; done: boolean; revisions: number }
+export interface StudyChapter { id: ID; name: string; done: boolean; revisions: number; doneAt?: number; revisedAt?: number[] }
 export interface StudySubject { id: ID; name: string; chapters: StudyChapter[]; archived?: boolean }
 export interface StudySession {
   id: ID; date: string; subjectId: ID; chapterId?: ID; minutes: number; topics?: string; notes?: string; createdAt: number
@@ -243,6 +245,8 @@ export interface HealthProfile {
   sex?: 'male' | 'female'
   goal: BulkGoal
   sleepGoalMin: number
+  /** applied from the bulk tracker's weekly weight-trend advice */
+  kcalAdjust?: number
 }
 export interface FoodItem { name: string; grams?: number; kcal: number; protein: number; carbs: number; fat: number }
 export interface MealEntry {
@@ -270,4 +274,22 @@ export interface SleepRecord {
   rested?: number // 1–5 check-in
   source: 'auto' | 'manual'
   timeline?: { start: number; end: number; type: 'idle' | 'used' }[]
+}
+
+// ---------- Productivity+ ----------
+export interface WeightEntry { id: ID; date: string; kg: number }
+export interface WorkoutSet { reps: number; kg: number }
+export interface WorkoutExercise { name: string; sets: WorkoutSet[] }
+export interface Workout { id: ID; date: string; title?: string; exercises: WorkoutExercise[]; notes?: string; createdAt: number }
+export interface EnergyLog { id: ID; at: number; date: string; level: 1 | 2 | 3; instanceKey?: string; category?: Category }
+export interface Expense { id: ID; date: string; amount: number; category: string; note?: string; createdAt: number }
+export interface QuarterGoal {
+  id: ID; title: string; quarter: string // e.g. 2026-Q4
+  categories: Category[] // tasks/focus in these categories count as progress
+  milestones: { id: ID; title: string; done: boolean }[]
+  createdAt: number
+}
+export interface Targets2 {
+  outreachCalls: number; outreachDms: number; waterGlasses: number
+  savingsGoal?: number; monthlyBudget?: number; niosExamDate?: string
 }

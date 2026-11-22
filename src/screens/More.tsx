@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion'
-import { BellRing, BookOpen, CalendarDays, ChevronRight, Clapperboard, FlaskConical, FolderKanban, GraduationCap, LineChart, NotebookPen, Settings, Sparkles } from 'lucide-react'
+import { BellRing, BookOpen, CalendarDays, ChevronRight, Clapperboard, Dumbbell, FlaskConical, FolderKanban, Target, Wallet, GraduationCap, LineChart, NotebookPen, Settings, Sparkles } from 'lucide-react'
 import { ScreenHeader } from '../components/ui'
 import { useNav, type Page } from '../store/nav'
 import { useStore } from '../store/useStore'
@@ -7,6 +7,9 @@ import { dateKey } from '../lib/time'
 
 const ITEMS: { p: Page; l: string; icon: typeof BookOpen; c: string; sub: (s: ReturnType<typeof useStore.getState>) => string }[] = [
   { p: 'timetable', l: 'Timetable', icon: CalendarDays, c: '#FFCF7A', sub: s => `${s.templates[0].blocks.length} weekday blocks · drag to move` },
+  { p: 'goals', l: 'Quarterly Goals', icon: Target, c: '#FFB59A', sub: s => `${s.goals.length} goals` },
+  { p: 'workouts', l: 'Workouts', icon: Dumbbell, c: '#FF8FA8', sub: s => `${s.workouts.length} sessions logged` },
+  { p: 'money', l: 'Money', icon: Wallet, c: '#9BE7C4', sub: s => `${s.expenses.filter(e => e.date.startsWith(dateKey().slice(0, 7))).length} entries this month` },
   { p: 'projects', l: 'Projects', icon: FolderKanban, c: '#8FB8FF', sub: s => `${s.projects.filter(p => p.status !== 'Delivered').length} active client projects` },
   { p: 'content', l: 'Content Studio', icon: Clapperboard, c: '#FF9ECF', sub: s => `${s.content.filter(c => c.status !== 'Published').length} in progress` },
   { p: 'trading', l: 'Trading Journal', icon: LineChart, c: '#9BE7C4', sub: s => `${s.trades.length} entries · ${s.trackedInstruments.join(', ')}` },

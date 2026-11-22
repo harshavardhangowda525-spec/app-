@@ -2,7 +2,7 @@ import { create } from 'zustand'
 import { persist, createJSONStorage, type StateStorage } from 'zustand/middleware'
 import { get as idbGet, set as idbSet, del as idbDel } from 'idb-keyval'
 import type {
-  ActiveFocus, ActivityCompletion, AppetiteLog, HealthProfile, MealEntry, SleepRecord, ActivityInstance, Book, BusinessLead, ClientProject, ContentItem,
+  ActiveFocus, ActivityCompletion, AppetiteLog, EnergyLog, Expense, HealthProfile, MealEntry, QuarterGoal, SleepRecord, Targets2, WeightEntry, Workout, ActivityInstance, Book, BusinessLead, ClientProject, ContentItem,
   DailyJournalEntry, DayOverride, ExtraActivity, FocusSession, ManifestationEntry, PracticeAnswer,
   ReadingSession, Reminder, ResearchItem, SalesDay, ScheduleBlock, ScheduleTemplate, StudySession,
   StudySubject, TradeJournalEntry, UserSettings,
@@ -45,6 +45,15 @@ export interface Data {
   meals: MealEntry[]
   appetite: AppetiteLog[]
   sleeps: SleepRecord[]
+  weights: WeightEntry[]
+  workouts: Workout[]
+  energy: EnergyLog[]
+  water: Record<string, number>
+  expenses: Expense[]
+  goals: QuarterGoal[]
+  blockStarts: Record<string, number> // instanceKey → actual start time
+  targets2: Targets2
+  coachNotes: Record<string, string> // weekKey → AI coach text
 }
 
 type ListKey = {
@@ -61,6 +70,11 @@ interface Actions {
   remove: <K extends ListKey>(k: K, id: string) => void
   updateSettings: (p: Partial<UserSettings>) => void
   updateHealth: (p: Partial<HealthProfile>) => void
+  updateTargets2: (p: Partial<Targets2>) => void
+  markStart: (instanceKey: string, at?: number) => void
+  addWater: (date: string, delta: number) => void
+  logEnergy: (level: 1 | 2 | 3, instanceKey?: string, category?: EnergyLog['category']) => void
+  addDistraction: () => void
   // schedule
   complete: (i: ActivityInstance) => void
   skip: (i: ActivityInstance) => void
@@ -130,6 +144,15 @@ export function initialData(): Data {
     meals: [],
     appetite: [],
     sleeps: [],
+    weights: [],
+    workouts: [],
+    energy: [],
+    water: {},
+    expenses: [],
+    goals: [],
+    blockStarts: {},
+    targets2: { outreachCalls: 30, outreachDms: 20, waterGlasses: 12 },
+    coachNotes: {},
   }
 }
 
@@ -152,6 +175,11 @@ export const useStore = create<Store>()(
       remove: (k, id) => set(s => ({ [k]: (s[k] as { id: string }[]).filter(x => x.id !== id) } as Partial<Store>)),
       updateSettings: (p) => set(s => ({ settings: { ...s.settings, ...p } })),
       updateHealth: (p) => set(s => ({ healthProfile: { ...s.healthProfile, ...p } })),
+      updateTargets2: (p) => set(s => ({ targets2: { ...s.targets2, ...p } })),
+      markStart: (k, at = Date.now()) => set(s => (s.blockStarts[k] ? {} : { blockStarts: { ...s.blockStarts, [k]: at } })),
+      addWater: (date, d) => set(s => ({ water: { ...s.water, [date]: Math.max(0, (s.water[date] ?? 0) + d) } })),
+      logEnergy: (level, instanceKey, category) => set(s => ({ energy: [...s.energy, { id: uid(), at: Date.now(), date: dateKey(), level, instanceKey, category }] })),
+      addDistraction: () => set(s => (s.activeFocus ? { activeFocus: { ...s.activeFocus, distractions: (s.activeFocus.distractions ?? 0) + 1 } } : {})),
 
       complete: (i) => {
         const now = new Date()
@@ -220,7 +248,7 @@ export const useStore = create<Store>()(
       })),
       setPriorities: (date, items) => set(s => ({ priorities: { ...s.priorities, [date]: items } })),
 
-      startFocus: (f) => set({ activeFocus: { ...f, startedAt: Date.now(), pausedTotalMs: 0 } }),
+      startFocus: (f) => set(s => ({ activeFocus: { ...f, startedAt: Date.now(), pausedTotalMs: 0 }, blockStarts: f.instanceKey && !s.blockStarts[f.instanceKey] ? { ...s.blockStarts, [f.instanceKey]: Date.now() } : s.blockStarts })),
       pauseFocus: () => set(s => (s.activeFocus && !s.activeFocus.pausedAt ? { activeFocus: { ...s.activeFocus, pausedAt: Date.now() } } : {})),
       resumeFocus: () => set(s => {
         const f = s.activeFocus
@@ -239,7 +267,7 @@ export const useStore = create<Store>()(
           session = {
             id: uid(), date: dateKey(new Date(f.startedAt)), startedAt: f.startedAt, endedAt: end,
             plannedMinutes: f.plannedMinutes, actualMinutes: actual, instanceKey: f.instanceKey,
-            label: f.label, category: f.category, completed: elapsedMs >= f.plannedMinutes * 60000 - 1000,
+            label: f.label, category: f.category, completed: elapsedMs >= f.plannedMinutes * 60000 - 1000, distractions: f.distractions ?? 0,
           }
         }
         set(s => ({ activeFocus: null, focusSessions: session ? [...s.focusSessions, session] : s.focusSessions }))
@@ -302,7 +330,7 @@ export const useStore = create<Store>()(
     }),
     {
       name: 'kairo-v1',
-      version: 4,
+      version: 5,
       storage: createJSONStorage(() => idbStorage),
       partialize: (s) => {
         const out: Partial<Data> = {}

@@ -17,6 +17,9 @@ const Focus = lazy(() => import('./screens/Focus'))
 const Business = lazy(() => import('./screens/Business'))
 const Projects = lazy(() => import('./screens/Projects'))
 const Health = lazy(() => import('./screens/Health'))
+const Workouts = lazy(() => import('./pages/Workouts'))
+const Money = lazy(() => import('./pages/Money'))
+const Goals = lazy(() => import('./pages/Goals'))
 const Insights = lazy(() => import('./screens/Insights'))
 const More = lazy(() => import('./screens/More'))
 const Timetable = lazy(() => import('./pages/Timetable'))
@@ -40,7 +43,7 @@ const TABS: { t: Tab; l: string; I: typeof Timer }[] = [
 ]
 
 const PAGES: Record<Page, React.ComponentType> = {
-  projects: Projects, timetable: Timetable, study: Study, reading: Reading, trading: Trading, habits: Habits, settings: Settings,
+  projects: Projects, workouts: Workouts, money: Money, goals: Goals, timetable: Timetable, study: Study, reading: Reading, trading: Trading, habits: Habits, settings: Settings,
   manifest: Manifest, journal: Journal, content: ContentStudio, research: Research,
 }
 const SCREENS: Record<Tab, React.ComponentType> = { today: Today, focus: Focus, health: Health, business: Business, projects: Projects, insights: Insights, more: More }
@@ -119,6 +122,7 @@ function GlobalCelebration({ reduced }: { reduced: boolean }) {
   const next = items.find(i => i.status === 'active' || i.status === 'upcoming')
   return (
     <CompletionOverlay title={celebration.title} done={stats.done} eligible={stats.eligible} pct={stats.pct} next={next} reduced={reduced}
+      onEnergy={lvl => useStore.getState().logEnergy(lvl)}
       onContinue={() => { setCelebration(null); useNav.getState().setTab('today') }} onClose={() => setCelebration(null)} />
   )
 }
