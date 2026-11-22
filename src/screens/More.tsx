@@ -16,7 +16,7 @@ const ITEMS: { p: Page; l: string; icon: typeof BookOpen; c: string; sub: (s: Re
   { p: 'manifest', l: 'Manifestations', icon: Sparkles, c: '#C9B8FF', sub: s => `${s.manifestations.filter(m => m.date === dateKey() && m.done).length}/3 today` },
   { p: 'journal', l: 'Daily Journal', icon: NotebookPen, c: '#C9B8FF', sub: s => (s.journal[dateKey()] ? 'Written today' : 'Not written today') },
   { p: 'habits', l: 'Recurring Habits', icon: BellRing, c: '#8FB8FF', sub: s => `${s.reminders.filter(r => r.active).length} active reminders` },
-  { p: 'settings', l: 'Settings & Backup', icon: Settings, c: '#9A98AE', sub: () => 'Notifications, backup, motion' },
+  { p: 'settings', l: 'Account, Settings & Backup', icon: Settings, c: '#9A98AE', sub: () => 'Sign in & sync, AI key, notifications, backup' },
 ]
 
 export default function More() {

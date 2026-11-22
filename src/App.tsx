@@ -10,6 +10,8 @@ import { dateKey, fmtClock } from './lib/time'
 import { useNav, type Page, type Tab } from './store/nav'
 import { useStore } from './store/useStore'
 import Today from './screens/Today'
+import { noteActivity } from './lib/sleepWeb'
+import { startCloudSync } from './lib/cloud'
 
 const Focus = lazy(() => import('./screens/Focus'))
 const Business = lazy(() => import('./screens/Business'))
@@ -50,6 +52,15 @@ export default function App() {
   const activeFocus = useStore(s => s.activeFocus)
   const immersive = tab === 'focus' && !!activeFocus && !page
   useNotificationSync()
+  useEffect(() => { if (hydrated) startCloudSync() }, [hydrated])
+  useEffect(() => {
+    noteActivity()
+    const h = () => noteActivity()
+    const v = () => document.visibilityState === 'visible' && noteActivity()
+    window.addEventListener('pointerdown', h, { passive: true })
+    document.addEventListener('visibilitychange', v)
+    return () => { window.removeEventListener('pointerdown', h); document.removeEventListener('visibilitychange', v) }
+  }, [])
 
   if (!hydrated) {
     return <div className="ambient h-full grid place-items-center"><motion.div animate={{ opacity: [0.4, 1, 0.4] }} transition={{ repeat: Infinity, duration: 1.6 }} className="text-2xl font-extrabold tracking-tight">Kairo</motion.div></div>

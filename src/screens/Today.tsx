@@ -12,6 +12,7 @@ import { useNav } from '../store/nav'
 import { useStore } from '../store/useStore'
 import { dailySummary } from '../lib/analytics'
 import { InstallBanner } from '../components/InstallBanner'
+import { GoodNightCard, MorningCheckIn } from '../components/SleepWeb'
 
 export default function Today() {
   const now = useNow(15000)
@@ -94,6 +95,8 @@ export default function Today() {
         </div>
       </div>
 
+      {isToday && <MorningCheckIn />}
+      {isToday && <GoodNightCard />}
       {isToday && <InstallBanner />}
 
       <Priorities date={date} editing={editPr} setEditing={setEditPr} />

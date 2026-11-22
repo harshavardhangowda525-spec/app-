@@ -8,6 +8,7 @@ import { openUsageAccess, screenEvents, sleepAvailable, sleepPermission } from '
 import { addDays, dateKey, fmtDur, parseKey, prettyDate, uid, weekdayShort } from '../lib/time'
 import { lastNDays as lastNDaysSafe } from '../lib/analytics'
 import type { FoodItem, MealEntry, SleepRecord } from '../lib/types'
+import { GoodNightCard, MorningCheckIn } from '../components/SleepWeb'
 import { analyzeMeal, compressImage, getXaiKey, providerName } from '../lib/vision'
 import { useStore } from '../store/useStore'
 
@@ -39,6 +40,9 @@ export default function Health() {
       <ScreenHeader kicker="Body · Fuel · Recovery" title="Health"
         right={<button onClick={() => setProfileOpen(true)} className="h-8 px-3 rounded-full text-[11px] font-bold text-success bg-success/12 border border-success/35">Goal · {GOAL_LABEL[profile.goal]}</button>} />
 
+      <MorningCheckIn />
+      <GoodNightCard />
+
       {/* Sleep card */}
       <motion.button initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }} onClick={() => setSleepOpen(true)}
         className="w-full text-left rounded-[24px] p-4 flex items-center gap-4"
@@ -51,13 +55,13 @@ export default function Health() {
               <div className="text-2xl font-extrabold tracking-tight">{fmtDur(lastSleep.asleepMin)}</div>
               <div className="text-[11px] text-ink-2 font-semibold">{fmtTime(lastSleep.sleepStart)} → {fmtTime(lastSleep.wake)} · goal {fmtDur(profile.sleepGoalMin)}</div>
               <MiniTimeline r={lastSleep} />
-              <div className="text-[9.5px] text-ink-3 font-semibold mt-1">{lastSleep.source === 'auto' ? 'Auto · phone idle after 10 PM' : 'Logged manually'}</div>
+              <div className="text-[9.5px] text-ink-3 font-semibold mt-1">{lastSleep.source === 'auto' ? 'Auto · phone idle after 10 PM' : 'Good-night tap + morning check-in'}</div>
             </>
           ) : (
             <>
               <div className="text-[10px] font-extrabold tracking-[.12em] text-lavender">☾ SLEEP</div>
-              <div className="text-base font-extrabold">{sleepAvailable() ? 'Tracking starts tonight' : 'Tracks in the Android app'}</div>
-              <div className="text-[11px] text-ink-2 leading-snug">{sleepAvailable() ? 'After 10 PM, Kairo reads when your phone goes idle.' : 'Automatic sleep detection needs the Kairo Android app.'}</div>
+              <div className="text-base font-extrabold">Tracking starts tonight</div>
+              <div className="text-[11px] text-ink-2 leading-snug">{sleepAvailable() ? 'After 10 PM, Kairo reads when your phone goes idle.' : 'Tap “Good night” before bed; open Kairo when you wake.'}</div>
             </>
           )}
         </div>
@@ -545,8 +549,8 @@ function SleepView({ open, onClose }: { open: boolean; onClose: () => void }) {
       <div className="space-y-3.5 pb-2">
         {!sleepAvailable() && (
           <div className="rounded-2xl border border-[#8FB8FF]/35 bg-[#8FB8FF]/10 p-3.5 text-sm space-y-1">
-            <div className="font-bold flex items-center gap-2"><Smartphone size={16} /> Automatic sleep is Android-only</div>
-            <div className="text-xs text-ink-2 leading-relaxed">Install the Kairo Android app (README → “Install on Android”). It reads when your screen goes off after 10 PM and comes back on in the morning — no watch needed. Nights recorded there appear here.</div>
+            <div className="font-bold flex items-center gap-2"><Smartphone size={16} /> How sleep tracking works</div>
+            <div className="text-xs text-ink-2 leading-relaxed">After 9 PM tap <b className="text-ink">Good night</b> on Today when you put the phone down. In the morning, the first time you open Kairo becomes your wake-up, and a quick check-in (times pre-filled, editable) saves the night with a score. If you forget the tap, Kairo uses your last use of the app after 9:30 PM.</div>
           </div>
         )}
         {sleepAvailable() && perm === false && (

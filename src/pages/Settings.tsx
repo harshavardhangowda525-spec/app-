@@ -6,6 +6,7 @@ import { dateKey } from '../lib/time'
 import { useStore } from '../store/useStore'
 import { InstallButton } from '../components/InstallBanner'
 import { AiKeyCard } from '../components/AiKeyCard'
+import { AccountCard } from '../components/AccountCard'
 
 export default function Settings() {
   const settings = useStore(s => s.settings)
@@ -29,6 +30,9 @@ export default function Settings() {
   return (
     <div className="space-y-4">
       <ScreenHeader back kicker="Kairo" title="Settings" />
+      <Section title="Account & sync">
+        <AccountCard />
+      </Section>
       <Section title="App">
         <Card className="space-y-2"><InstallButton /></Card>
       </Section>
