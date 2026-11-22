@@ -247,8 +247,13 @@ export interface HealthProfile {
   sleepGoalMin: number
   /** applied from the bulk tracker's weekly weight-trend advice */
   kcalAdjust?: number
+  /** Bulk Boost preferences */
+  diet?: DietType
+  whey?: boolean
+  excludeFoods?: string[]
 }
-export interface FoodItem { name: string; grams?: number; kcal: number; protein: number; carbs: number; fat: number }
+export type DietType = 'veg' | 'egg' | 'nonveg'
+export interface FoodItem { name: string; grams?: number; kcal: number; protein: number; carbs: number; fat: number; /** Bulk Boost food id when added as an add-on */ boost?: string }
 export interface MealEntry {
   id: ID
   date: string

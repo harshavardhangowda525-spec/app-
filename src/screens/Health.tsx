@@ -10,6 +10,9 @@ import { lastNDays as lastNDaysSafe } from '../lib/analytics'
 import type { FoodItem, MealEntry, SleepRecord } from '../lib/types'
 import { GoodNightCard, MorningCheckIn } from '../components/SleepWeb'
 import { WaterCard, WeightCard, WorkoutsLink } from '../components/HealthPlus'
+import { BoostCard, BoostPrefsFields, BoostedKcal, GapSheet } from '../components/BulkBoost'
+import { dayGap } from '../lib/boost'
+import { Zap } from 'lucide-react'
 import { analyzeMeal, compressImage, getXaiKey, providerName } from '../lib/vision'
 import { useStore } from '../store/useStore'
 
@@ -33,7 +36,10 @@ export default function Health() {
   const latestAppetite = todayAppetite[todayAppetite.length - 1]
   const [profileOpen, setProfileOpen] = useState(false)
   const [sleepOpen, setSleepOpen] = useState(false)
-  const [mealOpen, setMealOpen] = useState<MealEntry | 'new' | null>(null)
+  const [mealOpen, setMealOpen] = useState<MealEntry | 'new' | { title: string; items: FoodItem[] } | null>(null)
+  const [gapOpen, setGapOpen] = useState(false)
+  const gap = dayGap(tot, t)
+  const showGapCta = !!gap && new Date().getHours() >= 16
   useAutoSleep()
 
   return (
@@ -79,9 +85,9 @@ export default function Health() {
                 <div><motion.b key={tot.kcal} initial={{ scale: 1.15 }} animate={{ scale: 1 }} className="inline-block text-[26px] font-extrabold tracking-tight text-peach">{Math.round(tot.kcal).toLocaleString('en-IN')}</motion.b>
                   <span className="text-xs text-ink-2 font-semibold"> / {t.kcal.toLocaleString('en-IN')} kcal</span></div>
               </div>
-              <span className={`rounded-full px-2.5 py-1.5 text-[10px] font-bold ${tot.kcal >= t.kcal ? 'bg-success/15 text-success' : 'bg-warning/12 text-warning'}`}>
-                {tot.kcal >= t.kcal ? 'Surplus hit ✓' : `${Math.round(t.kcal - tot.kcal)} kcal to target`}
-              </span>
+              <button onClick={() => gap && setGapOpen(true)} className={`rounded-full px-2.5 py-1.5 text-[10px] font-bold ${tot.kcal >= t.kcal ? 'bg-success/15 text-success' : 'bg-warning/12 text-warning'}`}>
+                {tot.kcal >= t.kcal ? 'Surplus hit ✓' : `${Math.round(t.kcal - tot.kcal)} kcal short`}
+              </button>
             </div>
             <GBar pct={(tot.kcal / t.kcal) * 100} grad="linear-gradient(90deg,#FFC4AE,#FF8FA8)" h={8} />
             <div className="flex gap-2.5">
@@ -93,6 +99,13 @@ export default function Health() {
                 </div>
               ))}
             </div>
+            {showGapCta && (
+              <motion.button initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ type: 'spring', stiffness: 260, damping: 16, delay: 0.4 }} whileTap={{ scale: 0.96 }}
+                onClick={() => setGapOpen(true)} className="w-full h-11 rounded-full font-extrabold text-sm text-[#1B1430] flex items-center justify-center gap-1.5"
+                style={{ background: 'linear-gradient(90deg,#C9B8FF,#FFB59A)' }}>
+                <Zap size={15} fill="currentColor" /> Close today's gap{gap!.protein >= 10 ? ` · ${gap!.protein} g protein` : ''}
+              </motion.button>
+            )}
           </>
         ) : (
           <button onClick={() => setProfileOpen(true)} className="w-full text-left">
@@ -142,7 +155,8 @@ export default function Health() {
 
       <ProfileSheet open={profileOpen} onClose={() => setProfileOpen(false)} />
       <SleepView open={sleepOpen} onClose={() => setSleepOpen(false)} />
-      {mealOpen && <MealFlow initial={mealOpen === 'new' ? null : mealOpen} t={t} onClose={() => setMealOpen(null)} />}
+      <GapSheet open={gapOpen} onClose={() => setGapOpen(false)} gap={gap} onTweak={(title, items) => setMealOpen({ title, items })} />
+      {mealOpen && <MealFlow initial={mealOpen === 'new' || !('id' in mealOpen) ? null : mealOpen} preset={mealOpen !== 'new' && !('id' in mealOpen) ? mealOpen : undefined} t={t} onClose={() => setMealOpen(null)} />}
     </div>
   )
 }
@@ -249,6 +263,7 @@ function ProfileSheet({ open, onClose }: { open: boolean; onClose: () => void })
         <Field label={`Sleep goal: ${fmtDur(p.sleepGoalMin)}`}>
           <input type="range" min={360} max={600} step={15} value={p.sleepGoalMin} onChange={e => update({ sleepGoalMin: Number(e.target.value) })} className="w-full accent-[#8FB8FF]" />
         </Field>
+        <BoostPrefsFields />
         {t ? (
           <div className="rounded-2xl bg-success/10 border border-success/30 p-3 text-sm">
             Daily target: <b>{t.kcal.toLocaleString('en-IN')} kcal</b> · <b>{t.protein} g</b> protein · {t.carbs} g carbs · {t.fat} g fat
@@ -265,13 +280,13 @@ function ProfileSheet({ open, onClose }: { open: boolean; onClose: () => void })
 
 type Phase = 'pick' | 'scanning' | 'result' | 'error'
 
-function MealFlow({ initial, t, onClose }: { initial: MealEntry | null; t: Targets | null; onClose: () => void }) {
+function MealFlow({ initial, preset, t, onClose }: { initial: MealEntry | null; preset?: { title: string; items: FoodItem[] }; t: Targets | null; onClose: () => void }) {
   const save = useStore(s => s.save)
   const remove = useStore(s => s.remove)
-  const [phase, setPhase] = useState<Phase>(initial ? 'result' : 'pick')
+  const [phase, setPhase] = useState<Phase>(initial || preset ? 'result' : 'pick')
   const [photo, setPhoto] = useState<string | undefined>(initial?.photo)
-  const [title, setTitle] = useState(initial?.title ?? '')
-  const [items, setItems] = useState<FoodItem[]>(initial?.items ?? [])
+  const [title, setTitle] = useState(initial?.title ?? preset?.title ?? '')
+  const [items, setItems] = useState<FoodItem[]>(initial?.items ?? preset?.items ?? [])
   const [after, setAfter] = useState<number | undefined>(initial?.appetiteAfter)
   const [err, setErr] = useState('')
   const [conf, setConf] = useState<string | undefined>()
@@ -279,6 +294,8 @@ function MealFlow({ initial, t, onClose }: { initial: MealEntry | null; t: Targe
   const galRef = useRef<HTMLInputElement>(null)
   const tot = sum(items)
   const b = bulkScore(tot, t)
+  const boostedN = items.filter(i => i.boost).length
+  const baseScore = bulkScore(sum(items.filter(i => !i.boost)), t).score
   const hasKey = !!getXaiKey()
 
   const cam = useLiveCamera(phase === 'pick' && !initial)
@@ -404,13 +421,10 @@ function MealFlow({ initial, t, onClose }: { initial: MealEntry | null; t: Targe
             <div className="mx-auto h-1 w-10 rounded-full bg-white/20" />
             <div className="flex items-end justify-between gap-3">
               <div className="flex-1 min-w-0">
-                <div className="label !text-ink-3">{conf ? `Detected · ${conf} confidence` : initial ? fmtTime(initial.at) : 'Meal'}</div>
+                <div className="label !text-ink-3">{boostedN && !initial ? 'Boosted meal' : conf ? `Detected · ${conf} confidence` : initial ? fmtTime(initial.at) : 'Meal'}</div>
                 <input className="bg-transparent text-xl font-extrabold tracking-tight w-full outline-none" placeholder="Meal name" value={title} onChange={e => setTitle(e.target.value)} />
               </div>
-              <div className="text-right shrink-0">
-                <motion.b key={Math.round(tot.kcal)} initial={{ scale: 1.2, opacity: 0.5 }} animate={{ scale: 1, opacity: 1 }} className="block text-[28px] font-extrabold tracking-tight text-peach leading-none">{Math.round(tot.kcal)}</motion.b>
-                <div className="text-[10px] text-ink-2 font-bold">KCAL{conf ? ' (±10%)' : ''}</div>
-              </div>
+              <BoostedKcal items={items} conf={conf} />
             </div>
             <div className="flex gap-2">
               {([['Protein', tot.protein, 'text-success'], ['Carbs', tot.carbs, 'text-warning'], ['Fat', tot.fat, 'text-[#FF9ECF]']] as const).map(([l, v, c]) => (
@@ -418,14 +432,15 @@ function MealFlow({ initial, t, onClose }: { initial: MealEntry | null; t: Targe
               ))}
             </div>
             {tot.kcal > 0 && (
-              <motion.div initial={{ scale: 0.6, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ type: 'spring', stiffness: 260, damping: 14, delay: 0.5 }}
+              <motion.div key={b.score >= 6 ? 'good' : 'light'} initial={{ scale: 0.6, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ type: 'spring', stiffness: 260, damping: 14, delay: boostedN ? 0.05 : 0.5 }}
                 className={`rounded-[18px] p-3 flex gap-3 items-center border ${b.score >= 6 ? 'border-success/40' : 'border-warning/40'}`}
                 style={{ background: b.score >= 6 ? 'linear-gradient(135deg,#9be7c426,#9be7c40a)' : 'linear-gradient(135deg,#ffcf7a26,#ffcf7a0a)' }}>
                 <div className="size-[52px] shrink-0 rounded-full grid place-items-center font-extrabold text-[17px]"
                   style={b.score >= 6 ? { background: 'radial-gradient(circle,#d6ffe9,#7fd8ae)', boxShadow: '0 0 22px #9be7c499', color: '#0a2a1c' } : { background: 'radial-gradient(circle,#fff0c8,#f2c35c)', boxShadow: '0 0 22px #ffcf7a88', color: '#3a2600' }}>{b.score.toFixed(1)}</div>
-                <div className="min-w-0"><b className={`text-sm ${b.score >= 6 ? 'text-success' : 'text-warning'}`}>{b.verdict}</b><div className="text-[11px] text-ink-2 leading-snug">{b.tip}</div></div>
+                <div className="min-w-0"><b className={`text-sm ${b.score >= 6 ? 'text-success' : 'text-warning'}`}>{b.verdict}</b><div className="text-[11px] text-ink-2 leading-snug">{boostedN ? `${baseScore.toFixed(1)} → ${b.score.toFixed(1)} with ${boostedN} add-on${boostedN > 1 ? 's' : ''}.${b.score >= 8 ? ' Meal target met ✓' : ''}` : b.tip}</div></div>
               </motion.div>
             )}
+            <BoostCard items={items} setItems={setItems} t={t} />
             <div className="space-y-1.5">
               <div className="label">Items {conf ? '· tap to correct' : ''}</div>
               {items.map((it, i) => (
@@ -453,7 +468,7 @@ function MealFlow({ initial, t, onClose }: { initial: MealEntry | null; t: Targe
             <div className="flex gap-2 pt-1">
               {initial ? <Pill variant="danger" onClick={() => { if (confirmDelete('this meal')) { remove('meals', initial.id); onClose() } }}><Trash2 size={16} /></Pill>
                 : <Pill className="flex-1 h-12" onClick={() => setPhase('pick')}>Retake</Pill>}
-              <Pill variant="white" className="flex-1 h-12" disabled={!items.length || tot.kcal <= 0} onClick={log}>{initial ? 'Save' : 'Log meal'}</Pill>
+              <Pill variant="white" className="flex-1 h-12" disabled={!items.length || tot.kcal <= 0} onClick={log}>{initial ? 'Save' : boostedN ? 'Log boosted meal' : 'Log meal'}</Pill>
             </div>
           </motion.div>
         )}

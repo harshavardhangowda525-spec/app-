@@ -31,7 +31,7 @@ export function bulkScore(m: { kcal: number; protein: number; carbs: number; fat
   const tips: string[] = []
   const pGap = Math.round(perProtein - m.protein)
   const kGap = Math.round(perKcal - m.kcal)
-  if (pGap >= 8) tips.push(`Add ~${pGap} g protein — 2 eggs, 100 g paneer or a scoop of whey.`)
+  if (pGap >= 8) tips.push(`Add ~${pGap} g protein — 2 eggs, 100 g paneer or soya chunks.`)
   if (kGap >= 120) tips.push(`Add ~${kGap} kcal — a glass of milk, or a banana with peanut butter.`)
   if (fatShare > 0.4) tips.push('Fat-heavy — balance it with rice, roti or fruit.')
   if (!tips.length) tips.push(m.protein >= perProtein ? `High protein (${Math.round(m.protein)} g) and a solid surplus — keep it up.` : 'Well balanced meal.')
