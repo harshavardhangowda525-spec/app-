@@ -272,9 +272,18 @@ function MealFlow({ initial, t, onClose }: { initial: MealEntry | null; t: Targe
   const b = bulkScore(tot, t)
   const hasKey = !!getXaiKey()
 
-  const onFile = async (f?: File) => {
-    if (!f) return
-    const img = await compressImage(f)
+  const cam = useLiveCamera(phase === 'pick' && !initial)
+  const [flash, setFlash] = useState(false)
+  const onFile = async (f?: File) => { if (f) processImage(await compressImage(f)) }
+  const shoot = () => {
+    if (cam.state !== 'live') { camRef.current?.click(); return } // blocked/unsupported → phone camera app
+    const img = cam.capture()
+    if (!img) return
+    setFlash(true); setTimeout(() => setFlash(false), 220)
+    navigator.vibrate?.(25)
+    processImage(img)
+  }
+  const processImage = async (img: string) => {
     setPhoto(img)
     if (!hasKey) { setItems([{ name: 'Food', kcal: 0, protein: 0, carbs: 0, fat: 0 }]); setTitle(''); setPhase('result'); return }
     setPhase('scanning')
@@ -299,11 +308,29 @@ function MealFlow({ initial, t, onClose }: { initial: MealEntry | null; t: Targe
       <input ref={galRef} type="file" accept="image/*" className="hidden" onChange={e => onFile(e.target.files?.[0])} />
 
       {/* camera / photo stage */}
-      <div className="absolute inset-x-0 top-0 h-[58%]" style={{ background: 'radial-gradient(60% 50% at 50% 40%,#3a2a24,#0d0a0a 75%)' }}>
+      <div className={`absolute inset-x-0 top-0 transition-[height] duration-500 ease-[cubic-bezier(.2,.8,.2,1)] ${phase === 'pick' ? 'h-full' : 'h-[58%]'}`} style={{ background: 'radial-gradient(60% 50% at 50% 40%,#3a2a24,#0d0a0a 75%)' }}>
+        {phase === 'pick' && (
+          <video ref={cam.videoRef} autoPlay playsInline muted className={`absolute inset-0 size-full object-cover transition-opacity duration-500 ${cam.state === 'live' ? 'opacity-100' : 'opacity-0'}`} />
+        )}
+        {phase === 'pick' && cam.state === 'starting' && (
+          <div className="absolute inset-0 grid place-items-center"><div className="flex flex-col items-center gap-3 text-sm text-ink-2"><span className="size-7 rounded-full border-2 border-peach/30 border-t-peach animate-spin" />Opening camera…</div></div>
+        )}
+        {phase === 'pick' && (cam.state === 'denied' || cam.state === 'unsupported') && (
+          <div className="absolute inset-x-6 top-1/2 -translate-y-1/2 rounded-3xl bg-black/60 border border-white/15 p-5 text-center space-y-3">
+            <Camera size={28} className="mx-auto text-peach" />
+            <div className="font-bold">{cam.state === 'denied' ? 'Camera access is off' : 'Live camera not available here'}</div>
+            <div className="text-xs text-ink-2 leading-relaxed">{cam.state === 'denied' ? 'Allow camera for Kairo (Android Settings → Apps → Kairo → Permissions → Camera), then try again.' : 'Use your phone camera or pick a photo instead.'}</div>
+            <div className="flex gap-2 justify-center">
+              {cam.state === 'denied' && <Pill variant="lavender" className="h-9 text-xs" onClick={cam.restart}>Try again</Pill>}
+              <Pill className="h-9 text-xs" onClick={() => camRef.current?.click()}>Use phone camera</Pill>
+            </div>
+          </div>
+        )}
+        <AnimatePresence>{flash && <motion.div className="absolute inset-0 bg-white z-10" initial={{ opacity: 0.9 }} animate={{ opacity: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.22 }} />}</AnimatePresence>
         {photo && <motion.img src={photo} alt="" className="absolute inset-0 size-full object-cover" initial={{ scale: 1.08, opacity: 0 }} animate={{ scale: 1, opacity: phase === 'scanning' ? 0.85 : 1 }} transition={{ duration: 0.6 }} />}
         <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-transparent to-black/60" />
         {(phase === 'pick' || phase === 'scanning') && (
-          <div className="absolute left-[54px] right-[54px] top-[14%] bottom-[20%]">
+          <div className={`absolute left-[44px] right-[44px] ${phase === 'pick' ? 'top-[18%] bottom-[30%]' : 'top-[14%] bottom-[20%]'}`}>
             {['left-0 top-0 border-r-0 border-b-0 rounded-tl-xl', 'right-0 top-0 border-l-0 border-b-0 rounded-tr-xl', 'left-0 bottom-0 border-r-0 border-t-0 rounded-bl-xl', 'right-0 bottom-0 border-l-0 border-t-0 rounded-br-xl'].map(c =>
               <i key={c} className={`absolute size-9 border-[3px] border-peach ${c} ${phase === 'scanning' ? 'anim-pulse-soft' : ''}`} />)}
             {phase === 'scanning' && <motion.div className="absolute -left-2 -right-2 h-[2px]" style={{ background: 'linear-gradient(90deg,transparent,#FFB59A,transparent)', boxShadow: '0 0 16px #FFB59A' }}
@@ -318,18 +345,23 @@ function MealFlow({ initial, t, onClose }: { initial: MealEntry | null; t: Targe
           <span className="size-9" />
         </div>
         {phase === 'pick' && (
-          <div className="absolute bottom-6 inset-x-0 flex items-center justify-center gap-8">
+          <div className="absolute bottom-[max(28px,env(safe-area-inset-bottom))] inset-x-0 flex flex-col items-center gap-4">
+          <div className="text-[13px] font-semibold text-white/85 drop-shadow">{cam.state === 'live' ? 'Fit the whole plate inside the frame' : hasKey ? '' : 'Add a Groq key in Settings for auto-analysis'}</div>
+          <div className="flex items-center justify-center gap-8">
             <button onClick={() => galRef.current?.click()} aria-label="Choose from gallery" className="size-12 rounded-full bg-black/50 border border-white/15 grid place-items-center"><ImagePlus size={20} /></button>
-            <motion.button whileTap={{ scale: 0.9 }} onClick={() => camRef.current?.click()} aria-label="Take photo"
-              className="size-[76px] rounded-full bg-white grid place-items-center ring-4 ring-white/25 shadow-[0_0_30px_rgba(255,181,154,.5)]"><Camera size={28} color="#2A1420" /></motion.button>
+            <motion.button whileTap={{ scale: 0.88 }} onClick={shoot} aria-label="Take photo" disabled={cam.state === 'starting'}
+              className="size-[78px] rounded-full grid place-items-center ring-4 ring-white/40 shadow-[0_0_30px_rgba(255,181,154,.5)] disabled:opacity-50" style={{ background: 'radial-gradient(circle,#fff 58%,#ffe3d6)' }}>
+              {cam.state === 'live' ? <span className="size-[62px] rounded-full border-2 border-[#2A1420]/15" /> : <Camera size={28} color="#2A1420" />}
+            </motion.button>
             <button onClick={() => { setItems([{ name: '', kcal: 0, protein: 0, carbs: 0, fat: 0 }]); setPhase('result') }} aria-label="Enter manually" className="size-12 rounded-full bg-black/50 border border-white/15 grid place-items-center text-[10px] font-bold">Type</button>
+          </div>
           </div>
         )}
       </div>
 
       {/* bottom area */}
       <AnimatePresence>
-        {phase === 'pick' && (
+        {false && (
           <motion.div key="pick" initial={{ y: 40, opacity: 0 }} animate={{ y: 0, opacity: 1 }} className="absolute inset-x-0 bottom-0 top-[58%] px-5 pt-6 text-center space-y-2">
             <div className="text-lg font-extrabold">Snap your plate</div>
             <div className="text-sm text-ink-2">{hasKey ? `${providerName()} identifies the food, portions, calories and macros. Kairo scores it for your bulk.` : 'Add your Groq or Grok key in Settings for automatic analysis — or type the food yourself.'}</div>
@@ -420,6 +452,49 @@ function MealFlow({ initial, t, onClose }: { initial: MealEntry | null; t: Targe
     </motion.div>,
     document.body,
   )
+}
+
+/* ---------------- in-app live camera ---------------- */
+
+type CamState = 'off' | 'starting' | 'live' | 'denied' | 'unsupported'
+
+/** Rear camera stream inside Kairo (asks permission once; no jump to the phone's camera app). */
+function useLiveCamera(active: boolean) {
+  const videoRef = useRef<HTMLVideoElement>(null)
+  const streamRef = useRef<MediaStream | null>(null)
+  const [state, setState] = useState<CamState>('off')
+  const [nonce, setNonce] = useState(0)
+  useEffect(() => {
+    if (!active) return
+    if (!navigator.mediaDevices?.getUserMedia) { setState('unsupported'); return }
+    let cancelled = false
+    setState('starting')
+    navigator.mediaDevices.getUserMedia({ audio: false, video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 960 } } })
+      .then(async stream => {
+        if (cancelled) { stream.getTracks().forEach(t => t.stop()); return }
+        streamRef.current = stream
+        const v = videoRef.current
+        if (v) { v.srcObject = stream; await v.play().catch(() => {}) }
+        setState('live')
+      })
+      .catch(e => { if (!cancelled) setState(e?.name === 'NotAllowedError' || e?.name === 'SecurityError' ? 'denied' : 'unsupported') })
+    return () => {
+      cancelled = true
+      streamRef.current?.getTracks().forEach(t => t.stop())
+      streamRef.current = null
+    }
+  }, [active, nonce])
+  const capture = () => {
+    const v = videoRef.current
+    if (!v || !v.videoWidth) return null
+    const max = 1024, s = Math.min(1, max / Math.max(v.videoWidth, v.videoHeight))
+    const c = document.createElement('canvas')
+    c.width = Math.round(v.videoWidth * s); c.height = Math.round(v.videoHeight * s)
+    c.getContext('2d')!.drawImage(v, 0, 0, c.width, c.height)
+    streamRef.current?.getTracks().forEach(t => t.stop()) // release the camera right after the shot
+    return c.toDataURL('image/jpeg', 0.75)
+  }
+  return { videoRef, state, capture, restart: () => setNonce(n => n + 1) }
 }
 
 /* ---------------- sleep ---------------- */
