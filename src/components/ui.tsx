@@ -1,4 +1,4 @@
-import { AnimatePresence, motion } from 'framer-motion'
+import { AnimatePresence, motion, useDragControls } from 'framer-motion'
 import {
   BookOpen, Briefcase, ChevronLeft, Clapperboard, Code2, Droplet, Dumbbell, FlaskConical, GraduationCap,
   LineChart, Moon, NotebookPen, Sparkles, Circle, X, type LucideIcon,
@@ -112,6 +112,8 @@ export function Bar({ pct, className = '', grad = 'peach-grad' }: { pct: number;
 }
 
 export function Sheet({ open, onClose, title, children }: { open: boolean; onClose: () => void; title: string; children: ReactNode }) {
+  // Drag-to-close starts only from the handle/header, so the body scrolls normally on touch screens.
+  const drag = useDragControls()
   // Portal: page wrappers use transforms, which would trap a fixed sheet under the nav bar.
   return createPortal(
     <AnimatePresence>
@@ -121,13 +123,15 @@ export function Sheet({ open, onClose, title, children }: { open: boolean; onClo
           <motion.div
             className="relative w-full max-w-[480px] max-h-[88dvh] overflow-y-auto no-scrollbar rounded-t-[28px] bg-elevated border-t border-white/10 px-4 pt-3 pb-[max(20px,env(safe-area-inset-bottom))]"
             initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={spring}
-            drag="y" dragConstraints={{ top: 0, bottom: 0 }} dragElastic={{ top: 0, bottom: 0.6 }}
+            drag="y" dragListener={false} dragControls={drag} dragConstraints={{ top: 0, bottom: 0 }} dragElastic={{ top: 0, bottom: 0.6 }}
             onDragEnd={(_, info) => { if (info.offset.y > 120 || info.velocity.y > 600) onClose() }}
           >
+            <div className="-mx-4 -mt-3 pt-3 px-4 touch-none" onPointerDown={e => drag.start(e)}>
             <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-white/20" />
             <div className="flex items-center justify-between mb-3">
               <h2 className="text-lg font-bold">{title}</h2>
               <IconBtn label="Close" onClick={onClose}><X size={16} /></IconBtn>
+            </div>
             </div>
             {children}
           </motion.div>
