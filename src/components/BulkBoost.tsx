@@ -2,6 +2,7 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { Check, Plus, Zap } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { Field, Pill, Sheet } from './ui'
+import { Odometer } from './FoodMotion'
 import { BOOST_FOODS, boostPrefs, dayCombos, foodById, mealBoosts, mealGap, needsBoost, toItem, type ComboMode } from '../lib/boost'
 import { bulkScore, sum, type Targets } from '../lib/health'
 import { dateKey, uid } from '../lib/time'
@@ -93,7 +94,7 @@ export function BoostedKcal({ items, conf }: { items: FoodItem[]; conf?: string 
       <AnimatePresence>{added > 0 && <motion.span key={added} className="absolute right-0 -top-4 text-xs font-extrabold text-success" initial={{ y: 0, opacity: 0 }} animate={{ y: -18, opacity: [0, 1, 0] }} transition={{ duration: 1.4 }}>+{added}</motion.span>}</AnimatePresence>
       <div className="flex items-baseline justify-end gap-1.5">
         {added > 0 && <span className="text-[13px] text-ink-3 line-through font-bold">{base}</span>}
-        <motion.b key={tot} initial={{ scale: 1.2, opacity: 0.5 }} animate={{ scale: 1, opacity: 1 }} className="text-[28px] font-extrabold tracking-tight text-peach leading-none">{tot}</motion.b>
+        <Odometer value={tot} h={30} className="text-[28px] font-extrabold tracking-tight text-peach" />
       </div>
       <div className="text-[10px] text-ink-2 font-bold">KCAL{conf ? ' (±10%)' : ''}</div>
     </div>

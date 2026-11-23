@@ -97,3 +97,42 @@ input[type="date"].field, input[type="time"].field { color-scheme: dark; }
 }
 .reduce-motion .anim-breathe, .reduce-motion .anim-waveL, .reduce-motion .anim-waveR, .reduce-motion .anim-drift,
 .reduce-motion .anim-heartbeat, .reduce-motion .anim-spin-slow, .reduce-motion .anim-ring-out { animation: none !important; }
+
+/* ---------- Workout photos & glow (transform/opacity only) ---------- */
+@property --kai-a { syntax: '<angle>'; inherits: false; initial-value: 0deg; }
+@keyframes kai-rot { to { --kai-a: 360deg } }
+@keyframes kai-xf { 0%,35% { opacity: 0 } 50%,85% { opacity: 1 } 100% { opacity: 0 } }
+@keyframes kai-phase { 0%,49% { opacity: 1 } 50%,100% { opacity: 0 } }
+.xf { position: relative; overflow: hidden; background: #ffffff0a; }
+.xf img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.xf img + img { animation: kai-xf 2.6s ease-in-out infinite; animation-delay: var(--xd, 0s); }
+.glow-border { position: relative; }
+.glow-border::before { content: ''; position: absolute; inset: -1px; border-radius: inherit; padding: 1.5px; z-index: 2; pointer-events: none;
+  background: conic-gradient(from var(--kai-a), #FFB59A, #C9B8FF, #8FB8FF, #FFB59A);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude;
+  animation: kai-rot 3s linear infinite; }
+
+/* ---------- Food scan motion ---------- */
+@keyframes kai-radar { 0% { transform: scale(1); opacity: .9 } 100% { transform: scale(26); opacity: 0 } }
+@keyframes kai-orbit1 { from { transform: perspective(600px) rotateX(70deg) rotateZ(0) } to { transform: perspective(600px) rotateX(70deg) rotateZ(360deg) } }
+@keyframes kai-orbit2 { from { transform: perspective(600px) rotateX(60deg) rotateY(20deg) rotateZ(360deg) } to { transform: perspective(600px) rotateX(60deg) rotateY(20deg) rotateZ(0) } }
+@keyframes kai-orbit3 { from { transform: perspective(600px) rotateX(76deg) rotateZ(0) } to { transform: perspective(600px) rotateX(76deg) rotateZ(360deg) } }
+@keyframes kai-beam { from { top: 12% } to { top: 86% } }
+@keyframes kai-glitch { 0%,90% { transform: none } 93% { transform: translateX(2px) skewX(6deg) } 96% { transform: translateX(-2px) } }
+@keyframes kai-aurora { to { --kai-a: 360deg } }
+@keyframes kai-wave { to { rotate: 360deg } }
+@keyframes kai-sweep { from { transform: translateX(-50%) } to { transform: translateX(50%) } }
+.kai-radar { position: absolute; width: 10px; height: 10px; margin: -5px; border-radius: 50%; border: 2px solid #ffb59a; animation: kai-radar 2.4s ease-out infinite; }
+.kai-orbit { position: absolute; left: 50%; top: 50%; border-radius: 50%; border: 1.5px solid; pointer-events: none; }
+.kai-o1 { width: 250px; height: 250px; margin: -125px; border-color: #ffb59a88 transparent #ffb59a88 transparent; animation: kai-orbit1 4s linear infinite; }
+.kai-o2 { width: 205px; height: 205px; margin: -102px; border-color: transparent #c9b8ff99 transparent #c9b8ff99; animation: kai-orbit2 3s linear infinite; }
+.kai-o3 { width: 290px; height: 290px; margin: -145px; border-color: #8fb8ff55 transparent transparent transparent; border-style: dashed; animation: kai-orbit3 6s linear infinite; }
+.kai-beam { position: absolute; left: 8%; right: 8%; height: 2px; background: linear-gradient(90deg, transparent, #FFB59A, transparent); box-shadow: 0 0 22px 4px #FFB59A88; animation: kai-beam 1.8s ease-in-out infinite alternate; }
+.kai-scanlines { position: absolute; inset: 0; background: repeating-linear-gradient(0deg, #ffffff07 0 1px, transparent 1px 3px); pointer-events: none; }
+.kai-glitch { animation: kai-glitch 1.2s steps(2) infinite; }
+.kai-aurora { position: absolute; inset: -30%; background: conic-gradient(from var(--kai-a), #ff8fa822, #c9b8ff22, #8fb8ff22, #9be7c422, #ff8fa822); filter: blur(40px); animation: kai-rot 10s linear infinite; pointer-events: none; }
+.kai-liq { position: absolute; left: -50%; width: 200%; height: 200%; border-radius: 42%; animation: kai-wave 3.5s linear infinite; }
+.kai-sheet-sweep::before { content: ''; position: absolute; left: -40%; right: -40%; top: -1px; height: 2px; background: linear-gradient(90deg, transparent, #ffb59a, #c9b8ff, transparent); animation: kai-sweep 2.6s ease-in-out infinite alternate; }
+@media (prefers-reduced-motion: reduce) {
+  .xf img + img, .glow-border::before, .kai-radar, .kai-orbit, .kai-beam, .kai-glitch, .kai-aurora, .kai-liq, .kai-sheet-sweep::before { animation: none !important; }
+}

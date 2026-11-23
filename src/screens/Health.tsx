@@ -13,6 +13,8 @@ import { WaterCard, WeightCard, WorkoutsLink } from '../components/HealthPlus'
 import { BoostCard, BoostPrefsFields, BoostedKcal, GapSheet } from '../components/BulkBoost'
 import { dayGap } from '../lib/boost'
 import { Zap } from 'lucide-react'
+import { LandingFx, LiquidOrb, MacroRing, ScanCounter } from '../components/FoodMotion'
+import { useReducedMotion } from 'framer-motion'
 import { analyzeMeal, compressImage, getXaiKey, providerName } from '../lib/vision'
 import { useStore } from '../store/useStore'
 
@@ -38,6 +40,8 @@ export default function Health() {
   const [sleepOpen, setSleepOpen] = useState(false)
   const [mealOpen, setMealOpen] = useState<MealEntry | 'new' | { title: string; items: FoodItem[] } | null>(null)
   const [gapOpen, setGapOpen] = useState(false)
+  const [landing, setLanding] = useState<MealEntry | null>(null)
+  const fuelRef = useRef<HTMLDivElement>(null!)
   const gap = dayGap(tot, t)
   const showGapCta = !!gap && new Date().getHours() >= 16
   useAutoSleep()
@@ -67,7 +71,7 @@ export default function Health() {
           ) : (
             <>
               <div className="text-[10px] font-extrabold tracking-[.12em] text-lavender">☾ SLEEP</div>
-              <div className="text-base font-extrabold">Tracking starts tonight</div>
+              <div className="text-[16px] text-ink font-extrabold">Tracking starts tonight</div>
               <div className="text-[11px] text-ink-2 leading-snug">{sleepAvailable() ? 'After 10 PM, Kairo reads when your phone goes idle.' : 'Tap “Good night” before bed; open Kairo when you wake.'}</div>
             </>
           )}
@@ -79,11 +83,14 @@ export default function Health() {
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="glass rounded-[24px] p-4 space-y-3">
         {t ? (
           <>
-            <div className="flex items-start justify-between gap-2">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-3">
+              <FuelRing pct={tot.kcal / t.kcal} innerRef={fuelRef} />
               <div>
                 <div className="label !text-ink-3">Fuel today</div>
                 <div><motion.b key={tot.kcal} initial={{ scale: 1.15 }} animate={{ scale: 1 }} className="inline-block text-[26px] font-extrabold tracking-tight text-peach">{Math.round(tot.kcal).toLocaleString('en-IN')}</motion.b>
                   <span className="text-xs text-ink-2 font-semibold"> / {t.kcal.toLocaleString('en-IN')} kcal</span></div>
+              </div>
               </div>
               <button onClick={() => gap && setGapOpen(true)} className={`rounded-full px-2.5 py-1.5 text-[10px] font-bold ${tot.kcal >= t.kcal ? 'bg-success/15 text-success' : 'bg-warning/12 text-warning'}`}>
                 {tot.kcal >= t.kcal ? 'Surplus hit ✓' : `${Math.round(t.kcal - tot.kcal)} kcal short`}
@@ -156,12 +163,30 @@ export default function Health() {
       <ProfileSheet open={profileOpen} onClose={() => setProfileOpen(false)} />
       <SleepView open={sleepOpen} onClose={() => setSleepOpen(false)} />
       <GapSheet open={gapOpen} onClose={() => setGapOpen(false)} gap={gap} onTweak={(title, items) => setMealOpen({ title, items })} />
-      {mealOpen && <MealFlow initial={mealOpen === 'new' || !('id' in mealOpen) ? null : mealOpen} preset={mealOpen !== 'new' && !('id' in mealOpen) ? mealOpen : undefined} t={t} onClose={() => setMealOpen(null)} />}
+      {mealOpen && <MealFlow initial={mealOpen === 'new' || !('id' in mealOpen) ? null : mealOpen} preset={mealOpen !== 'new' && !('id' in mealOpen) ? mealOpen : undefined} t={t} onClose={() => setMealOpen(null)}
+        onLogged={m => { setMealOpen(null); setLanding(m) }} />}
+      {landing && <LandingFx title={landing.title} kcal={landing.kcal} photo={landing.photo} target={fuelRef.current} onDone={() => setLanding(null)} />}
     </div>
   )
 }
 
 /* ---------------- shared bits ---------------- */
+
+function FuelRing({ pct, innerRef }: { pct: number; innerRef: React.RefObject<HTMLDivElement> }) {
+  const r = 22, C = 2 * Math.PI * r
+  return (
+    <div ref={innerRef} className="relative size-[54px] shrink-0">
+      <svg viewBox="0 0 54 54" className="size-full -rotate-90">
+        <defs><linearGradient id="fuelg"><stop offset="0" stopColor="#FFC4AE" /><stop offset="1" stopColor="#FF8FA8" /></linearGradient></defs>
+        <circle cx="27" cy="27" r={r} fill="none" stroke="rgb(255 255 255 / .08)" strokeWidth="6" />
+        <motion.circle cx="27" cy="27" r={r} fill="none" stroke="url(#fuelg)" strokeWidth="6" strokeLinecap="round" strokeDasharray={C}
+          initial={{ strokeDashoffset: C }} animate={{ strokeDashoffset: C * (1 - Math.min(1, pct)) }} transition={{ duration: 1.2, ease: [0.2, 0.8, 0.2, 1] }}
+          style={{ filter: 'drop-shadow(0 0 5px #ff8fa8aa)' }} />
+      </svg>
+      <div className="absolute inset-0 grid place-items-center text-[11px] font-extrabold">{Math.round(Math.min(1, pct) * 100)}%</div>
+    </div>
+  )
+}
 
 function GBar({ pct, grad, h, delay = 0.1 }: { pct: number; grad: string; h: number; delay?: number }) {
   return (
@@ -278,9 +303,14 @@ function ProfileSheet({ open, onClose }: { open: boolean; onClose: () => void })
 
 /* ---------------- meal capture & analysis ---------------- */
 
-type Phase = 'pick' | 'scanning' | 'result' | 'error'
+type Phase = 'pick' | 'scanning' | 'reveal' | 'result' | 'error'
 
-function MealFlow({ initial, preset, t, onClose }: { initial: MealEntry | null; preset?: { title: string; items: FoodItem[] }; t: Targets | null; onClose: () => void }) {
+// Where food tags pop up on the photo during the reveal (percent of the stage).
+const TAG_SPOTS = [[58, 22], [8, 38], [56, 62], [10, 70], [34, 12]] as const
+
+function MealFlow({ initial, preset, t, onClose, onLogged }: { initial: MealEntry | null; preset?: { title: string; items: FoodItem[] }; t: Targets | null; onClose: () => void; onLogged: (m: MealEntry) => void }) {
+  const reduce = useReducedMotion()
+  const [burst, setBurst] = useState(0)
   const save = useStore(s => s.save)
   const remove = useStore(s => s.remove)
   const [phase, setPhase] = useState<Phase>(initial || preset ? 'result' : 'pick')
@@ -305,7 +335,7 @@ function MealFlow({ initial, preset, t, onClose }: { initial: MealEntry | null; 
     if (cam.state !== 'live') { camRef.current?.click(); return } // blocked/unsupported → phone camera app
     const img = cam.capture()
     if (!img) return
-    setFlash(true); setTimeout(() => setFlash(false), 220)
+    setFlash(true); setTimeout(() => setFlash(false), 260); setBurst(n => n + 1)
     navigator.vibrate?.(25)
     processImage(img)
   }
@@ -316,7 +346,9 @@ function MealFlow({ initial, preset, t, onClose }: { initial: MealEntry | null; 
     try {
       const r = await analyzeMeal(img)
       if (!r.items.length) throw new Error(r.title === 'Not food' ? "That doesn't look like food — try another photo." : 'No food detected.')
-      setTitle(r.title); setItems(r.items); setConf(r.confidence); setPhase('result'); navigator.vibrate?.([20, 40, 20])
+      setTitle(r.title); setItems(r.items); setConf(r.confidence); navigator.vibrate?.([20, 40, 20])
+      if (reduce) setPhase('result')
+      else { setPhase('reveal'); setTimeout(() => setPhase(p => (p === 'reveal' ? 'result' : p)), 1500 + Math.min(4, r.items.length) * 250) }
     } catch (e) { setErr((e as Error).message); setPhase('error') }
   }
   const upd = (i: number, k: keyof FoodItem, v: string) => setItems(xs => xs.map((x, j) => (j === i ? { ...x, [k]: k === 'name' ? v : Math.max(0, Number(v) || 0) } : x)))
@@ -325,7 +357,8 @@ function MealFlow({ initial, preset, t, onClose }: { initial: MealEntry | null; 
       id: initial?.id ?? uid(), date: initial?.date ?? dateKey(), at: initial?.at ?? Date.now(), title: title.trim() || 'Meal',
       photo, items, ...tot, source: initial?.source ?? (hasKey && conf ? 'ai' : 'manual'), appetiteAfter: after,
     }
-    save('meals', m); navigator.vibrate?.(30); onClose()
+    save('meals', m); navigator.vibrate?.(30)
+    if (initial) onClose(); else onLogged(m)
   }
 
   return createPortal(
@@ -334,7 +367,8 @@ function MealFlow({ initial, preset, t, onClose }: { initial: MealEntry | null; 
       <input ref={galRef} type="file" accept="image/*" className="hidden" onChange={e => onFile(e.target.files?.[0])} />
 
       {/* camera / photo stage */}
-      <div className={`absolute inset-x-0 top-0 transition-[height] duration-500 ease-[cubic-bezier(.2,.8,.2,1)] ${phase === 'pick' ? 'h-full' : 'h-[58%]'}`} style={{ background: 'radial-gradient(60% 50% at 50% 40%,#3a2a24,#0d0a0a 75%)' }}>
+      <div className={`absolute inset-x-0 top-0 transition-[height] duration-500 ease-[cubic-bezier(.2,.8,.2,1)] ${phase === 'pick' ? 'h-full' : 'h-[58%]'}`} style={{ background: 'radial-gradient(60% 50% at 50% 40%,#3a2a24,#0d0a0a 75%)', perspective: 700 }}>
+        {(phase === 'pick' && cam.state !== 'live') && <div className="kai-aurora" />}
         {phase === 'pick' && (
           <video ref={cam.videoRef} autoPlay playsInline muted className={`absolute inset-0 size-full object-cover transition-opacity duration-500 ${cam.state === 'live' ? 'opacity-100' : 'opacity-0'}`} />
         )}
@@ -352,21 +386,45 @@ function MealFlow({ initial, preset, t, onClose }: { initial: MealEntry | null; 
             </div>
           </div>
         )}
-        <AnimatePresence>{flash && <motion.div className="absolute inset-0 bg-white z-10" initial={{ opacity: 0.9 }} animate={{ opacity: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.22 }} />}</AnimatePresence>
-        {photo && <motion.img src={photo} alt="" className="absolute inset-0 size-full object-cover" initial={{ scale: 1.08, opacity: 0 }} animate={{ scale: 1, opacity: phase === 'scanning' ? 0.85 : 1 }} transition={{ duration: 0.6 }} />}
+        <AnimatePresence>{flash && <motion.div className="absolute inset-0 z-10" style={{ background: 'radial-gradient(circle at 50% 85%,#fff,#ffffffd9 45%,#ffffff66 80%)' }} initial={{ opacity: 1 }} animate={{ opacity: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.3 }} />}</AnimatePresence>
+        {photo && (
+          <motion.div className="absolute inset-0 overflow-hidden" initial={reduce ? false : { clipPath: 'circle(0% at 50% 50%)' }} animate={{ clipPath: 'circle(150% at 50% 50%)' }} transition={{ duration: 0.7, ease: [0.2, 0.8, 0.2, 1] }}>
+            <motion.img src={photo} alt="" className="absolute inset-0 size-full object-cover" initial={{ scale: 1.12 }}
+              animate={phase === 'scanning' && !reduce ? { scale: 1.04, rotateX: [6, 12, 6], rotateZ: [-1.5, 1.5, -1.5], opacity: 0.88 } : { scale: 1, rotateX: 0, rotateZ: 0, opacity: 1 }}
+              transition={phase === 'scanning' ? { duration: 5, repeat: Infinity, ease: 'easeInOut' } : { duration: 0.6 }} />
+          </motion.div>
+        )}
+        {(phase === 'scanning' || phase === 'reveal') && !reduce && (
+          <div className="absolute inset-0 pointer-events-none">
+            <div className="kai-orbit kai-o3" /><div className="kai-orbit kai-o1" /><div className="kai-orbit kai-o2" />
+            {phase === 'scanning' && <div className="kai-beam" />}
+            <div className="kai-scanlines" />
+          </div>
+        )}
+        {phase === 'reveal' && items.slice(0, TAG_SPOTS.length).map((it, i) => {
+          const [x, y] = TAG_SPOTS[i]
+          return (
+            <motion.div key={i} className="absolute z-[5] rounded-[12px] px-2.5 py-1.5 border border-peach/60 bg-[#0b0a12]/85 backdrop-blur shadow-[0_0_16px_#ffb59a55]"
+              style={{ left: `${x}%`, top: `${y}%` }} initial={{ scale: 0, opacity: 0, y: 10 }} animate={{ scale: 1, opacity: 1, y: 0 }}
+              transition={{ type: 'spring', stiffness: 420, damping: 16, delay: 0.15 + i * 0.25 }}>
+              <div className="text-[11px] font-extrabold max-w-[130px] truncate">{it.name}</div>
+              <div className="text-[9.5px] font-bold text-peach">{it.grams ? `${it.grams} g · ` : ''}{Math.round(it.kcal)} kcal</div>
+            </motion.div>
+          )
+        })}
         <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-transparent to-black/60" />
-        {(phase === 'pick' || phase === 'scanning') && (
-          <div className={`absolute left-[44px] right-[44px] ${phase === 'pick' ? 'top-[18%] bottom-[30%]' : 'top-[14%] bottom-[20%]'}`}>
-            {['left-0 top-0 border-r-0 border-b-0 rounded-tl-xl', 'right-0 top-0 border-l-0 border-b-0 rounded-tr-xl', 'left-0 bottom-0 border-r-0 border-t-0 rounded-bl-xl', 'right-0 bottom-0 border-l-0 border-t-0 rounded-br-xl'].map(c =>
-              <i key={c} className={`absolute size-9 border-[3px] border-peach ${c} ${phase === 'scanning' ? 'anim-pulse-soft' : ''}`} />)}
-            {phase === 'scanning' && <motion.div className="absolute -left-2 -right-2 h-[2px]" style={{ background: 'linear-gradient(90deg,transparent,#FFB59A,transparent)', boxShadow: '0 0 16px #FFB59A' }}
-              animate={{ top: ['0%', '100%', '0%'] }} transition={{ duration: 2.4, repeat: Infinity, ease: 'easeInOut' }} />}
+        {phase === 'pick' && (
+          <div className="absolute left-[44px] right-[44px] top-[18%] bottom-[30%]">
+            {([['left-0 top-0 border-r-0 border-b-0 rounded-tl-xl', -26, -26], ['right-0 top-0 border-l-0 border-b-0 rounded-tr-xl', 26, -26], ['left-0 bottom-0 border-r-0 border-t-0 rounded-bl-xl', -26, 26], ['right-0 bottom-0 border-l-0 border-t-0 rounded-br-xl', 26, 26]] as const).map(([c, ox, oy], i) =>
+              <motion.i key={c} className={`absolute size-9 border-[3px] border-peach ${c}`} style={{ filter: 'drop-shadow(0 0 6px #ffb59a88)' }}
+                initial={reduce ? false : { x: ox, y: oy, opacity: 0 }} animate={{ x: 0, y: 0, opacity: 1 }} transition={{ type: 'spring', stiffness: 260, damping: 14, delay: 0.25 + i * 0.05 }} />)}
+            {cam.state === 'live' && !reduce && <div className="absolute left-1/2 top-1/2"><div className="kai-radar" /><div className="kai-radar" style={{ animationDelay: '1.2s' }} /></div>}
           </div>
         )}
         <div className="absolute top-[max(16px,env(safe-area-inset-top))] inset-x-4 flex justify-between items-center">
           <button onClick={onClose} aria-label="Close" className="size-9 rounded-full bg-black/50 border border-white/15 grid place-items-center"><X size={16} /></button>
           <span className="rounded-full bg-black/55 border border-white/15 px-3 py-1.5 text-[11px] font-bold">
-            {phase === 'scanning' ? `Analysing with ${providerName()}…` : phase === 'pick' ? 'Frame your plate' : phase === 'error' ? 'Analysis failed' : initial ? 'Edit meal' : 'Review & log'}
+            {phase === 'scanning' ? `Analysing with ${providerName()}…` : phase === 'reveal' ? `${items.length} food${items.length === 1 ? '' : 's'} found` : phase === 'pick' ? 'Frame your plate' : phase === 'error' ? 'Analysis failed' : initial ? 'Edit meal' : 'Review & log'}
           </span>
           <span className="size-9" />
         </div>
@@ -375,10 +433,13 @@ function MealFlow({ initial, preset, t, onClose }: { initial: MealEntry | null; 
           <div className="text-[13px] font-semibold text-white/85 drop-shadow">{cam.state === 'live' ? 'Fit the whole plate inside the frame' : hasKey ? '' : 'Add a Groq key in Settings for auto-analysis'}</div>
           <div className="flex items-center justify-center gap-8">
             <button onClick={() => galRef.current?.click()} aria-label="Choose from gallery" className="size-12 rounded-full bg-black/50 border border-white/15 grid place-items-center"><ImagePlus size={20} /></button>
+            <div className="relative">
+            <AnimatePresence>{burst > 0 && <motion.span key={burst} className="absolute -inset-3 rounded-full border-2 border-peach pointer-events-none" initial={{ scale: 0.8, opacity: 1 }} animate={{ scale: 1.7, opacity: 0 }} transition={{ duration: 0.6, ease: 'easeOut' }} />}</AnimatePresence>
             <motion.button whileTap={{ scale: 0.88 }} onClick={shoot} aria-label="Take photo" disabled={cam.state === 'starting'}
               className="size-[78px] rounded-full grid place-items-center ring-4 ring-white/40 shadow-[0_0_30px_rgba(255,181,154,.5)] disabled:opacity-50" style={{ background: 'radial-gradient(circle,#fff 58%,#ffe3d6)' }}>
               {cam.state === 'live' ? <span className="size-[62px] rounded-full border-2 border-[#2A1420]/15" /> : <Camera size={28} color="#2A1420" />}
             </motion.button>
+            </div>
             <button onClick={() => { setItems([{ name: '', kcal: 0, protein: 0, carbs: 0, fat: 0 }]); setPhase('result') }} aria-label="Enter manually" className="size-12 rounded-full bg-black/50 border border-white/15 grid place-items-center text-[10px] font-bold">Type</button>
           </div>
           </div>
@@ -393,17 +454,32 @@ function MealFlow({ initial, preset, t, onClose }: { initial: MealEntry | null; 
             <div className="text-sm text-ink-2">{hasKey ? `${providerName()} identifies the food, portions, calories and macros. Kairo scores it for your bulk.` : 'Add your Groq or Grok key in Settings for automatic analysis — or type the food yourself.'}</div>
           </motion.div>
         )}
-        {phase === 'scanning' && (
-          <motion.div key="scan" initial={{ y: 40, opacity: 0 }} animate={{ y: 0, opacity: 1 }} className="absolute inset-x-0 bottom-0 top-[58%] px-6 pt-7 space-y-3">
-            {['Identifying the foods', 'Estimating portions', 'Calculating calories & macros'].map((l, i) => (
-              <motion.div key={l} className="flex items-center gap-3" initial={{ opacity: 0.25 }} animate={{ opacity: [0.25, 1, 1] }} transition={{ delay: i * 0.9, duration: 0.6 }}>
-                <span className="relative size-5 grid place-items-center">
-                  <motion.span className="absolute inset-0 rounded-full border-2 border-peach/30 border-t-peach" animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 0.9, ease: 'linear', delay: i * 0.9 }} />
-                </span>
-                <span className="text-sm font-semibold">{l}</span>
-              </motion.div>
-            ))}
-            <div className="text-[11px] text-ink-3 pt-2">{providerName()} is reading your photo — usually a few seconds.</div>
+        {(phase === 'scanning' || phase === 'reveal') && (
+          <motion.div key="scan" initial={{ y: 40, opacity: 0 }} animate={{ y: 0, opacity: 1 }} className="absolute inset-x-0 bottom-0 top-[58%] px-6 pt-4">
+            <div className="text-center">
+              <div className="label !text-ink-3 !text-[10px]">{phase === 'reveal' ? 'Total' : 'Counting…'}</div>
+              <div className="text-[46px] leading-none font-black tracking-[-0.04em] mt-1 text-peach" style={{ textShadow: '0 0 22px #ff8fa866' }}>
+                <ScanCounter final={phase === 'reveal' ? Math.round(tot.kcal) : null} /><span className="text-[16px] font-extrabold text-ink-2 ml-1">kcal</span>
+              </div>
+            </div>
+            <div className="space-y-2.5 mt-5">
+              {['Identifying the foods', 'Estimating portions', 'Macros & bulk score'].map((l, i) => {
+                const ok = phase === 'reveal'
+                return (
+                  <motion.div key={l} className="flex items-center gap-3" initial={{ opacity: 0.25 }} animate={{ opacity: [0.25, 1, 1] }} transition={{ delay: i * 0.9, duration: 0.6 }}>
+                    <span className="relative size-5 grid place-items-center">
+                      {ok ? <motion.span initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: 'spring', stiffness: 500, damping: 15, delay: i * 0.08 }} className="size-5 rounded-full bg-success text-[#0a2a1c] grid place-items-center text-[11px] font-black">✓</motion.span>
+                        : <motion.span className="absolute inset-0 rounded-full border-2 border-peach/30 border-t-peach" animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 0.9, ease: 'linear', delay: i * 0.9 }} />}
+                    </span>
+                    <span className="text-sm font-semibold">{l}</span>
+                  </motion.div>
+                )
+              })}
+            </div>
+            <div className="h-1.5 rounded-full bg-white/8 overflow-hidden mt-4">
+              <motion.div className="h-full rounded-full" style={{ background: 'linear-gradient(90deg,#FFB59A,#C9B8FF)' }} initial={{ width: '4%' }}
+                animate={{ width: phase === 'reveal' ? '100%' : '88%' }} transition={{ duration: phase === 'reveal' ? 0.5 : 9, ease: phase === 'reveal' ? 'easeOut' : [0.1, 0.6, 0.3, 1] }} />
+            </div>
           </motion.div>
         )}
         {phase === 'error' && (
@@ -417,7 +493,7 @@ function MealFlow({ initial, preset, t, onClose }: { initial: MealEntry | null; 
         )}
         {phase === 'result' && (
           <motion.div key="res" initial={{ y: '100%' }} animate={{ y: 0 }} transition={{ type: 'spring', stiffness: 220, damping: 28, delay: 0.1 }}
-            className="absolute inset-x-0 bottom-0 max-h-[72%] overflow-y-auto no-scrollbar rounded-t-[28px] bg-elevated border-t border-white/10 px-[18px] pt-3 pb-[max(20px,env(safe-area-inset-bottom))] space-y-3">
+            className="kai-sheet-sweep absolute inset-x-0 bottom-0 max-h-[72%] overflow-y-auto overflow-x-hidden no-scrollbar rounded-t-[28px] bg-elevated border-t border-white/10 px-[18px] pt-3 pb-[max(20px,env(safe-area-inset-bottom))] space-y-3">
             <div className="mx-auto h-1 w-10 rounded-full bg-white/20" />
             <div className="flex items-end justify-between gap-3">
               <div className="flex-1 min-w-0">
@@ -427,16 +503,15 @@ function MealFlow({ initial, preset, t, onClose }: { initial: MealEntry | null; 
               <BoostedKcal items={items} conf={conf} />
             </div>
             <div className="flex gap-2">
-              {([['Protein', tot.protein, 'text-success'], ['Carbs', tot.carbs, 'text-warning'], ['Fat', tot.fat, 'text-[#FF9ECF]']] as const).map(([l, v, c]) => (
-                <div key={l} className="flex-1 glass rounded-[14px] py-2 text-center"><b className={`block text-[15px] ${c}`}>{Math.round(v)} g</b><span className="text-[10px] text-ink-2 font-semibold">{l}</span></div>
+              {([['Protein', tot.protein, (t?.protein ?? 130) / 4, '#9BE7C4'], ['Carbs', tot.carbs, (t?.carbs ?? 380) / 4, '#FFCF7A'], ['Fat', tot.fat, (t?.fat ?? 80) / 4, '#FF9ECF']] as const).map(([l, v, g, c], i) => (
+                <MacroRing key={l} value={v} goal={g} color={c} label={l} delay={0.35 + i * 0.22} />
               ))}
             </div>
             {tot.kcal > 0 && (
               <motion.div key={b.score >= 6 ? 'good' : 'light'} initial={{ scale: 0.6, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ type: 'spring', stiffness: 260, damping: 14, delay: boostedN ? 0.05 : 0.5 }}
                 className={`rounded-[18px] p-3 flex gap-3 items-center border ${b.score >= 6 ? 'border-success/40' : 'border-warning/40'}`}
                 style={{ background: b.score >= 6 ? 'linear-gradient(135deg,#9be7c426,#9be7c40a)' : 'linear-gradient(135deg,#ffcf7a26,#ffcf7a0a)' }}>
-                <div className="size-[52px] shrink-0 rounded-full grid place-items-center font-extrabold text-[17px]"
-                  style={b.score >= 6 ? { background: 'radial-gradient(circle,#d6ffe9,#7fd8ae)', boxShadow: '0 0 22px #9be7c499', color: '#0a2a1c' } : { background: 'radial-gradient(circle,#fff0c8,#f2c35c)', boxShadow: '0 0 22px #ffcf7a88', color: '#3a2600' }}>{b.score.toFixed(1)}</div>
+                <LiquidOrb key={b.score} score={b.score} />
                 <div className="min-w-0"><b className={`text-sm ${b.score >= 6 ? 'text-success' : 'text-warning'}`}>{b.verdict}</b><div className="text-[11px] text-ink-2 leading-snug">{boostedN ? `${baseScore.toFixed(1)} → ${b.score.toFixed(1)} with ${boostedN} add-on${boostedN > 1 ? 's' : ''}.${b.score >= 8 ? ' Meal target met ✓' : ''}` : b.tip}</div></div>
               </motion.div>
             )}
@@ -462,7 +537,7 @@ function MealFlow({ initial, preset, t, onClose }: { initial: MealEntry | null; 
             <div>
               <div className="label mb-1.5">Appetite after eating</div>
               <div className="flex gap-1.5">{APPETITE.map(([e, l], i) => (
-                <button key={l} onClick={() => setAfter(i + 1)} className={`flex-1 rounded-xl py-1.5 text-base border ${after === i + 1 ? 'bg-peach/18 border-peach/60' : 'border-white/8'}`}>{e}<div className="text-[8px] font-bold text-ink-3">{l}</div></button>
+                <button key={l} onClick={() => setAfter(i + 1)} className={`flex-1 rounded-xl py-1.5 text-[16px] border ${after === i + 1 ? 'bg-peach/18 border-peach/60' : 'border-white/8'}`}>{e}<div className="text-[8px] font-bold text-ink-3">{l}</div></button>
               ))}</div>
             </div>
             <div className="flex gap-2 pt-1">
@@ -588,7 +663,7 @@ function SleepView({ open, onClose }: { open: boolean; onClose: () => void }) {
           <>
             <div className="grid grid-cols-3 gap-2 text-center">
               {[[fmtDur(r.asleepMin), 'asleep'], [fmtTime(r.sleepStart), 'phone down'], [String(r.wakeUps), 'wake-ups']].map(([v, l]) => (
-                <div key={l} className="glass rounded-2xl py-2.5"><b className="text-base">{v}</b><div className="text-[10px] text-ink-2 font-semibold">{l}</div></div>
+                <div key={l} className="glass rounded-2xl py-2.5"><b className="text-[16px] text-ink">{v}</b><div className="text-[10px] text-ink-2 font-semibold">{l}</div></div>
               ))}
             </div>
             {r.timeline && <NightChart r={r} />}

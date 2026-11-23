@@ -6,6 +6,8 @@ import { exerciseHistory, personalRecords } from '../lib/insightsPlus'
 import { dateKey, prettyDate, uid } from '../lib/time'
 import type { Workout, WorkoutExercise } from '../lib/types'
 import { useStore } from '../store/useStore'
+import SessionFlow, { loadDraft, type SessionDraft } from '../components/SessionFlow'
+import { libFor, exImg } from '../data/exerciseLib'
 
 const COMMON = ['Bench press', 'Squat', 'Deadlift', 'Overhead press', 'Barbell row', 'Pull-ups', 'Lat pulldown', 'Incline dumbbell press', 'Leg press', 'Bicep curl', 'Tricep pushdown', 'Lateral raise']
 
@@ -14,13 +16,24 @@ export default function Workouts() {
   const workouts = useMemo(() => [...data.workouts].sort((a, b) => b.date.localeCompare(a.date) || b.createdAt - a.createdAt), [data.workouts])
   const prs = useMemo(() => [...personalRecords(data).entries()].sort((a, b) => b[1].e1rm - a[1].e1rm), [data])
   const [edit, setEdit] = useState<Workout | null>(null)
+  const [flow, setFlow] = useState<{ resume: SessionDraft | null } | null>(null)
+  const [draft, setDraft] = useState(loadDraft)
   const [chart, setChart] = useState<string | null>(prs[0]?.[0] ?? null)
   const hist = chart ? exerciseHistory(data, chart) : []
   const last = workouts[0]
   const blank = (): Workout => ({ id: uid(), date: dateKey(), exercises: last ? last.exercises.map(e => ({ name: e.name, sets: e.sets.map(s => ({ ...s })) })) : [{ name: '', sets: [{ reps: 8, kg: 0 }] }], createdAt: Date.now() })
   return (
     <div className="space-y-4">
-      <ScreenHeader back kicker="Progressive overload" title="Workouts" right={<Pill variant="lavender" className="h-9" onClick={() => setEdit(blank())}><Plus size={16} /> Session</Pill>} />
+      <ScreenHeader back kicker="Progressive overload" title="Workouts" right={<Pill variant="lavender" className="h-9" onClick={() => setFlow({ resume: null })}><Plus size={16} /> Session</Pill>} />
+      {draft && (
+        <motion.button initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} onClick={() => setFlow({ resume: draft })}
+          className="w-full glass-strong !border-peach/40 rounded-[20px] p-3 flex items-center gap-3 text-left">
+          <span className="size-10 rounded-full grid place-items-center text-lg" style={{ background: 'linear-gradient(135deg,#FFC79E,#EE789E)' }}>🏋️</span>
+          <div className="flex-1 min-w-0"><b className="text-sm">Resume session</b><div className="text-[11px] text-ink-2 truncate">{draft.picked.length} exercises · {draft.picked.reduce((a, p) => a + p.sets.filter(x => x.done).length, 0)} sets done</div></div>
+          <span className="text-xs font-extrabold text-peach">Continue →</span>
+        </motion.button>
+      )}
+      <button onClick={() => setEdit(blank())} className="text-[11px] font-bold text-ink-3 -mt-2">or log a past session manually</button>
       {prs.length > 0 && (
         <Section title="Personal records (est. 1-rep max)">
           <div className="flex gap-2 overflow-x-auto no-scrollbar -mx-4 px-4">
@@ -57,13 +70,18 @@ export default function Workouts() {
         {workouts.length === 0 ? <Empty title="No workouts yet" hint="Log today’s session — next time Kairo pre-fills it so you just beat the numbers." /> :
           workouts.map(w => (
             <Card key={w.id} onClick={() => setEdit(w)} className="space-y-1">
-              <div className="flex justify-between"><b className="text-sm">{w.title || 'Workout'}</b><span className="text-xs text-ink-3">{prettyDate(w.date)}</span></div>
+              <div className="flex justify-between items-center gap-2"><b className="text-sm">{w.title || 'Workout'}</b>
+                <div className="flex items-center gap-2">
+                  <div className="flex -space-x-2">{w.exercises.map(e => libFor(e)?.id).filter(Boolean).slice(0, 3).map(id => <img key={id} src={exImg(id!, 1)} alt="" loading="lazy" className="size-6 rounded-full object-cover border-2 border-[#141424]" />)}</div>
+                  <span className="text-xs text-ink-3">{prettyDate(w.date)}{w.durationMin ? ` · ${w.durationMin}m` : ''}</span>
+                </div></div>
               <div className="text-[11px] text-ink-2">{w.exercises.map(e => `${e.name} ${e.sets.length}×`).join(' · ')}</div>
               <div className="text-[10px] text-ink-3">Volume {Math.round(w.exercises.flatMap(e => e.sets).reduce((a, s) => a + s.kg * s.reps, 0)).toLocaleString('en-IN')} kg</div>
             </Card>
           ))}
       </Section>
       <WorkoutSheet w={edit} onClose={() => setEdit(null)} />
+      {flow && <SessionFlow resume={flow.resume} onClose={() => { setFlow(null); setDraft(loadDraft()) }} />}
     </div>
   )
 }

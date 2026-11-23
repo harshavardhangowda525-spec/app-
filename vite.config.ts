@@ -10,6 +10,14 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['icon.svg', 'apple-touch-icon.png', 'favicon-48.png'],
+      workbox: {
+        // Exercise photos (public-domain free-exercise-db, bundled in /ex): cache after first view so they work offline at the gym.
+        runtimeCaching: [{
+          urlPattern: ({ url }) => url.pathname.startsWith('/ex/'),
+          handler: 'CacheFirst',
+          options: { cacheName: 'exercise-photos', expiration: { maxEntries: 600, maxAgeSeconds: 60 * 60 * 24 * 365 }, cacheableResponse: { statuses: [0, 200] } },
+        }],
+      },
       manifest: {
         name: 'Kairo — Own every hour',
         short_name: 'Kairo',

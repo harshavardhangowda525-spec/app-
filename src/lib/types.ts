@@ -284,8 +284,8 @@ export interface SleepRecord {
 // ---------- Productivity+ ----------
 export interface WeightEntry { id: ID; date: string; kg: number }
 export interface WorkoutSet { reps: number; kg: number }
-export interface WorkoutExercise { name: string; sets: WorkoutSet[] }
-export interface Workout { id: ID; date: string; title?: string; exercises: WorkoutExercise[]; notes?: string; createdAt: number }
+export interface WorkoutExercise { name: string; sets: WorkoutSet[]; /** exercise-library id */ exId?: string; muscle?: string }
+export interface Workout { id: ID; date: string; title?: string; exercises: WorkoutExercise[]; notes?: string; createdAt: number; muscles?: string[]; durationMin?: number }
 export interface EnergyLog { id: ID; at: number; date: string; level: 1 | 2 | 3; instanceKey?: string; category?: Category }
 export interface Expense { id: ID; date: string; amount: number; category: string; note?: string; createdAt: number }
 export interface QuarterGoal {
